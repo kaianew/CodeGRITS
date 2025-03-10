@@ -1,4 +1,5 @@
 package entity;
+import com.intellij.openapi.diagnostic.Logger;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -22,6 +23,9 @@ public class Config implements Serializable {
     private String pythonInterpreter;
     private String dataOutputPath;
     private Integer eyeTrackerDevice;
+    // Making a default for EyeEnum
+    private EyeEnum dominantEye;
+    private static final Logger LOG = Logger.getInstance(Config.class);
 
     /**
      * The constructor of the Config class.
@@ -33,13 +37,15 @@ public class Config implements Serializable {
      * @param dataOutputPath    The path of the data output folder.
      * @param eyeTrackerDevice  The index of the eye tracker device.
      */
-    public Config(List<Boolean> checkBoxes, List<String> labels, Double sampleFreq, String pythonInterpreter, String dataOutputPath, Integer eyeTrackerDevice) {
+    public Config(List<Boolean> checkBoxes, List<String> labels, Double sampleFreq, String pythonInterpreter,
+                  String dataOutputPath, Integer eyeTrackerDevice, EyeEnum dominantEye) {
         this.checkBoxes = checkBoxes;
         this.labels = labels;
         this.sampleFreq = sampleFreq;
         this.pythonInterpreter = pythonInterpreter;
         this.dataOutputPath = dataOutputPath;
         this.eyeTrackerDevice = eyeTrackerDevice;
+        this.dominantEye = dominantEye;
     }
 
     /**
@@ -68,6 +74,8 @@ public class Config implements Serializable {
         jsonObject.addProperty("checkBoxes", checkBoxes.toString());
         jsonObject.addProperty("dataOutputPath", dataOutputPath);
         jsonObject.addProperty("eyeTrackerDevice", eyeTrackerDevice);
+        LOG.info("In saveasjson, dominant eye is now: " + dominantEye.toString());
+        jsonObject.addProperty("dominantEye", dominantEye.toString());
 
         Gson gson = new Gson();
         try (FileWriter fileWriter = new FileWriter(PathManager.getPluginsPath() + "/config.json")) {
@@ -90,6 +98,14 @@ public class Config implements Serializable {
             sampleFreq = jsonObject.get("sampleFreq").getAsDouble();
             dataOutputPath = jsonObject.get("dataOutputPath").getAsString();
             eyeTrackerDevice = jsonObject.get("eyeTrackerDevice").getAsInt();
+            JsonElement dominantEyeJson = jsonObject.get("dominantEye");
+            if (dominantEyeJson != null) {
+                LOG.info("The dominant eye was saved properly in the JSON file.");
+                dominantEye = EyeEnum.valueOf(dominantEyeJson.getAsString());
+            }
+            else {
+                dominantEye = EyeEnum.RIGHT;
+            }
             String labelsString = jsonObject.get("labels").getAsString().substring(1, jsonObject.get("labels").getAsString().length() - 1);
             if (labelsString.equals("")) {
                 labels = List.of();
@@ -124,6 +140,8 @@ public class Config implements Serializable {
     public Integer getEyeTrackerDevice() {
         return eyeTrackerDevice;
     }
+
+    public EyeEnum getDominantEye() {return dominantEye;}
 
     public String toString() {
         return "Config{" +

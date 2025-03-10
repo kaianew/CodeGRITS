@@ -25,7 +25,7 @@ public class ScreenRecorder {
     /**
      * This variable indicates the frame rate of the screen recorder.
      */
-    int frameRate = 4; // higher frame rate (e.g., 12) will result in larger file size and blurry video
+    int frameRate = 10; // higher frame rate (e.g., 12) will result in larger file size and blurry video
     private FrameRecorder recorder;
     private FrameGrabber grabber;
     private final ArrayList<String[]> timeList = new ArrayList<>();

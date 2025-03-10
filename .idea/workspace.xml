@@ -5,10 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="14bb91d1-ebd0-4f11-b77e-711543adf329" name="Changes" comment="refresh">
+      <change afterPath="$PROJECT_DIR$/src/main/java/entity/EyeEnum.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/actions/StartStopTrackingAction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/actions/StartStopTrackingAction.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/components/ConfigDialog.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/components/ConfigDialog.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/entity/Config.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/entity/Config.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/trackers/EyeTracker.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/trackers/EyeTracker.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/trackers/ScreenRecorder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/trackers/ScreenRecorder.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -87,6 +91,10 @@
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 5
+}</component>
   <component name="ProjectId" id="2WpFJNFsxQtu45epQgIBTfCcwl7" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -94,6 +102,9 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Gradle.CodeGRITS [build].executor": "Run",
+    "Gradle.CodeGRITS [runIde].executor": "Run",
+    "Gradle.CodeGRITS [setupDependencies].executor": "Run",
     "JavaVariableFindUsagesOptions.isSearchForAccessors": "true",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -101,7 +112,8 @@
     "ShowUsagesActions.previewPropertyKey": "true",
     "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "D:/IdeaProjects/CodeGRITS",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/klnewman/Desktop/CodeGRITS",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -128,6 +140,9 @@
       <recent name="C:\Users\Lenovo\IdeaProjects\CodeGRITS\imgs" />
       <recent name="C:\Users\Lenovo\IdeaProjects\CodeGRITS" />
     </key>
+    <key name="CopyClassDialog.RECENTS_KEY">
+      <recent name="entity" />
+    </key>
   </component>
   <component name="RunManager" selected="Gradle.CodeGRITS [build]">
     <configuration name="OSDetector" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
@@ -148,7 +163,7 @@
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" />
+        <option name="scriptParameters" value="" />
         <option name="taskDescriptions">
           <list />
         </option>
@@ -162,7 +177,29 @@
       <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
-      <ForceTestExec>false</ForceTestExec>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="CodeGRITS [runIde]" type="GradleRunConfiguration" factoryName="Gradle" nameIsGenerated="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="runIde" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
       <method v="2" />
     </configuration>
     <configuration name="build.gradle.kts" type="KotlinStandaloneScriptRunConfigurationType" temporary="true" nameIsGenerated="true">
@@ -172,11 +209,18 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <list>
+      <item itemvalue="Application.OSDetector" />
+      <item itemvalue="Gradle.Run Plugin" />
+      <item itemvalue="Gradle.CodeGRITS [runIde]" />
+      <item itemvalue="Gradle.CodeGRITS [build]" />
+      <item itemvalue="Kotlin script (Beta).build.gradle.kts" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Gradle.CodeGRITS [build]" />
-        <item itemvalue="Application.OSDetector" />
         <item itemvalue="Kotlin script (Beta).build.gradle.kts" />
+        <item itemvalue="Application.OSDetector" />
       </list>
     </recent_temporary>
   </component>
@@ -291,6 +335,20 @@
       <workItem from="1732138004203" duration="42000" />
       <workItem from="1732218738012" duration="26000" />
       <workItem from="1737994531141" duration="882000" />
+      <workItem from="1738787637284" duration="184000" />
+      <workItem from="1738788847175" duration="993000" />
+      <workItem from="1738789987410" duration="393000" />
+      <workItem from="1738867719724" duration="2525000" />
+      <workItem from="1738870273910" duration="6408000" />
+      <workItem from="1738878949195" duration="421000" />
+      <workItem from="1738879399411" duration="763000" />
+      <workItem from="1738951750154" duration="16000" />
+      <workItem from="1739831144399" duration="176000" />
+      <workItem from="1739831773006" duration="108000" />
+      <workItem from="1739832407279" duration="65000" />
+      <workItem from="1739832485303" duration="14000" />
+      <workItem from="1739985611837" duration="29000" />
+      <workItem from="1741629674368" duration="333000" />
     </task>
     <task id="LOCAL-00001" summary="fix api bug">
       <option name="closed" value="true" />

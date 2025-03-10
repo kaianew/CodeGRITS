@@ -1,9 +1,12 @@
 package components;
 
 import actions.AddLabelAction;
+import com.intellij.openapi.application.PathManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.ui.*;
 import com.intellij.ui.DocumentAdapter;
+import entity.EyeEnum;
 import org.jetbrains.annotations.NotNull;
 import utils.AvailabilityChecker;
 import com.intellij.icons.AllIcons;
@@ -24,6 +27,9 @@ import java.util.*;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.Path;
 
 /**
  * This class is used to create the configuration dialog.
@@ -31,7 +37,7 @@ import java.util.regex.Pattern;
 public class ConfigDialog extends DialogWrapper {
 
     private List<JCheckBox> checkBoxes;
-
+    private List<JRadioButton> dominantEyes;
     private final JPanel panel = new JPanel();
     private static List<JTextField> labelAreas = new ArrayList<>();
 
@@ -46,6 +52,7 @@ public class ConfigDialog extends DialogWrapper {
 
     public static String selectDataOutputPlaceHolder = "Select Data Output Folder (Default: Project Root)";
     public static String selectPythonInterpreterPlaceHolder = "Select Python Interpreter (Default: \"python\")";
+    private static final Logger LOG = Logger.getInstance(ConfigDialog.class);
 
     /**
      * The constructor of the configuration dialog.
@@ -60,11 +67,32 @@ public class ConfigDialog extends DialogWrapper {
         setAutoAdjustable(true);
         setResizable(false);
         Config config = new Config();
+        // For now, delete config json when the config dialog is opened and start from scratch
+//        Path earlierConfig = Paths.get(PathManager.getPluginsPath() + "/config.json");
+//        try {
+//            Files.delete(earlierConfig);
+//            LOG.info("deleted the earlier config");
+//        }
+//        catch (Exception e) {
+//            LOG.info("Failed to delete the earlier config");
+//        }
         if (config.configExists()) {
             config.loadFromJson();
             List<Boolean> selected = config.getCheckBoxes();
             for (int i = 0; i < selected.size(); i++) {
                 checkBoxes.get(i).setSelected(selected.get(i));
+            }
+            EyeEnum dominantEye = config.getDominantEye();
+            switch(dominantEye) {
+                case LEFT:
+                    dominantEyes.get(0).setSelected(true);
+                    break;
+                case RIGHT:
+                    dominantEyes.get(1).setSelected(true);
+                    break;
+                default:
+                    LOG.info("Your eye config messed up in ConfigDialog.");
+                    assert(false);
             }
             pythonInterpreterTextField.setText(config.getPythonInterpreter());
         }
@@ -150,7 +178,9 @@ public class ConfigDialog extends DialogWrapper {
      */
     private void saveConfig() {
         Config config = new Config(getSelectedCheckboxes(), getCurrentLabels(), (Double) freqCombo.getSelectedItem(),
-                getPythonInterpreter(), getDataOutputPath(), deviceCombo.getSelectedIndex());
+                getPythonInterpreter(), getDataOutputPath(), deviceCombo.getSelectedIndex(), getSelectedEye());
+        String domEye = getSelectedEye().toString();
+        LOG.info("Part 3, dominant eye is now: " + domEye);
         config.saveAsJson();
     }
 
@@ -236,6 +266,32 @@ public class ConfigDialog extends DialogWrapper {
         screenRecording.setBorder(new EmptyBorder(contentMargin));
 
         panel.add(checkBoxPanel);
+
+        JLabel dominantSelection = new JLabel("Select Dominant Eye");
+        dominantSelection.setBorder(new EmptyBorder(headingMargin));
+        dominantSelection.setFont(headingFont);
+        panel.add(dominantSelection);
+
+        JPanel dominantPanel = new JPanel();
+        dominantPanel.setLayout(new BoxLayout(dominantPanel, BoxLayout.X_AXIS));
+        dominantPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        dominantPanel.setMaximumSize(new Dimension(500, 40));
+
+        dominantEyes = new ArrayList<>();
+        JRadioButton dominantLeft = new JRadioButton("Left Eye");
+        JRadioButton dominantRight = new JRadioButton("Right Eye");
+        ButtonGroup group = new ButtonGroup();
+        group.add(dominantLeft);
+        group.add(dominantRight);
+        dominantPanel.add(dominantLeft);
+        dominantPanel.add(dominantRight);
+        dominantEyes.add(dominantLeft);
+        dominantEyes.add(dominantRight);
+
+        dominantRight.setBorder(new EmptyBorder(contentMargin));
+        dominantLeft.setBorder(new EmptyBorder(contentMargin));
+
+        panel.add(dominantPanel);
 
         JLabel settings = new JLabel("Settings");
         settings.setBorder(new EmptyBorder(headingMargin));
@@ -480,6 +536,14 @@ public class ConfigDialog extends DialogWrapper {
         labelPanel.setLayout(new BoxLayout(labelPanel, BoxLayout.X_AXIS));
         labelPanel.setBorder(new EmptyBorder(JBUI.insets(5, 20, 0, 20)));
         labelPanel.setMaximumSize(new Dimension(500, 40));
+    }
+    public EyeEnum getSelectedEye() {
+        if (dominantEyes.get(0).isSelected()) {
+            return EyeEnum.LEFT;
+        }
+        else {
+            return EyeEnum.RIGHT;
+        }
     }
 
     /**

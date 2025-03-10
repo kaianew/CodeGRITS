@@ -106,6 +106,8 @@ public class StartStopTrackingAction extends AnAction {
                     eyeTracker.setDataOutputPath(realDataOutputPath);
                     eyeTracker.setPythonInterpreter(config.getPythonInterpreter());
                     eyeTracker.setSampleFrequency(config.getSampleFreq());
+                    // Set dominant eye
+                    eyeTracker.setDominantEye(config.getDominantEye());
                     eyeTracker.setDeviceIndex(config.getEyeTrackerDevice());
                     eyeTracker.setPythonScriptTobii();
                     eyeTracker.setPythonScriptMouse();

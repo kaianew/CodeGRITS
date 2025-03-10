@@ -1,4 +1,5 @@
 package trackers;
+import entity.EyeEnum;
 
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
@@ -61,6 +62,9 @@ public class EyeTracker implements Disposable {
     String pythonScriptTobii;
     String pythonScriptMouse;
     int deviceIndex = 0;
+    // This enum determines which eye is dominant, which affects the x,y calculation
+    // FIXME: after this debacle, check to make sure Psifile is using the proper x, y
+    EyeEnum dominantEye;
 
     /**
      * This variable indicates whether the real-time data is transmitting.
@@ -159,6 +163,8 @@ public class EyeTracker implements Disposable {
             setting.setAttribute("eye_tracker", "Tobii Pro Fusion");
         }
         setting.setAttribute("sample_frequency", String.valueOf(sampleFrequency));
+        // Records the dominant eye in the eye_tracking.xml file.
+        setting.setAttribute("dominant_eye", dominantEye.toString());
         track();
     }
 
@@ -216,7 +222,19 @@ public class EyeTracker implements Disposable {
             return;
         }
 
-        int eyeX = (int) ((Double.parseDouble(leftGazePointX) + Double.parseDouble(rightGazePointX)) / 2 * screenWidth);
+        int eyeX;
+        // Kaia 01_28_25: Use the X value from the dominant eye and the average of the Y values.
+        switch(dominantEye) {
+            case LEFT:
+                eyeX = (int) (Double.parseDouble(leftGazePointX) * screenWidth);
+                break;
+            case RIGHT:
+                eyeX = (int) (Double.parseDouble(rightGazePointX) * screenWidth);
+                break;
+            default:
+                eyeX = 0;
+                assert(false);
+        }
         int eyeY = (int) ((Double.parseDouble(leftGazePointY) + Double.parseDouble(rightGazePointY)) / 2 * screenHeight);
 
         int editorX, editorY;
@@ -420,6 +438,7 @@ public class EyeTracker implements Disposable {
     public void setSampleFrequency(double sampleFrequency) {
         this.sampleFrequency = sampleFrequency;
     }
+    public void setDominantEye(EyeEnum dominantEye) {this.dominantEye = dominantEye;}
 
     /**
      * This method sets the Python script for the Tobii eye tracker.
