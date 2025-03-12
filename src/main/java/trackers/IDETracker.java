@@ -73,6 +73,22 @@ public final class IDETracker implements Disposable {
      * This variable is the handler for the IDE tracker data.
      */
     private Consumer<Element> ideTrackerDataHandler;
+    // Class for the Map below.
+    public class AOIBounds {
+        public int x;
+        public int y;
+        public int width;
+        public int height;
+        public AOIBounds(int x, int y, int width, int height) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+        }
+    }
+    // Variable for keeping track of visible AOIs and their bounds throughout recording.
+    // The ToolWindowListener edits this, and the getAOIMap function allows the EyeTracker class to access it.
+    private Map<String, AOIBounds> AOIMap;
 
     /**
      * This variable is the document listener for the IDE tracker. When the document is changed, if the {@code EditorKind} is {@code CONSOLE}, the console output is archived. Otherwise, the {@code changedFilepath} and {@code changedFileText} are updated.
@@ -228,6 +244,21 @@ public final class IDETracker implements Disposable {
 
     };
 
+    // Saves new bounds to AOI map and records to XML.
+    private void registerBoundsToElement(ToolWindow toolWindow, Element toolWindowElement) {
+        Component component = toolWindow.getContentManager().getComponent();
+        Point location = component.getLocationOnScreen();
+        Dimension bounds = component.getSize();
+        toolWindowElement.setAttribute("x", String.valueOf(location.x));
+        toolWindowElement.setAttribute("y", String.valueOf(location.y));
+        toolWindowElement.setAttribute("width", String.valueOf(bounds.width));
+        toolWindowElement.setAttribute("height", String.valueOf(bounds.height));
+
+        // add to map
+        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height);
+        AOIMap.put(toolWindow.getId(), loc);
+    }
+
     // Listener for when the state of tool windows changes to record AOI bounds dynamically.
     ToolWindowManagerListener toolWindowManagerListener = new ToolWindowManagerListener() {
         // Enums for state changes do not work for when windows are shown. Thus, we maintain our own visibility states.
@@ -249,30 +280,23 @@ public final class IDETracker implements Disposable {
                     toolWindowElement.setAttribute("AOI", windowId);
                     if (changeType == ToolWindowManagerEventType.HideToolWindow) {
                         toolWindowElement.setAttribute("event", "WindowHidden");
+                        // Remove AOI from map (no longer visible).
+                        AOIMap.remove(toolWindow.getId());
                         toolWindows.appendChild(toolWindowElement);
                     }
                     else if (changeType == ToolWindowManagerEventType.MovedOrResized) {
                         toolWindowElement.setAttribute("event", "WindowChanged");
-                        addBoundsToElement(toolWindow, toolWindowElement);
+                        registerBoundsToElement(toolWindow, toolWindowElement);
                         toolWindows.appendChild(toolWindowElement);
                     }
                     else if (changeType == ToolWindowManagerEventType.ActivateToolWindow) {
                         // Tool window was just shown.
                         toolWindowElement.setAttribute("event", "WindowShown");
-                        addBoundsToElement(toolWindow, toolWindowElement);
+                        registerBoundsToElement(toolWindow, toolWindowElement);
                         toolWindows.appendChild(toolWindowElement);
                     }
                 }
                 previousVisibilityState.put(windowId, isCurrentlyVisible);
-            }
-            private void addBoundsToElement(ToolWindow toolWindow, Element toolWindowElement) {
-                Component component = toolWindow.getContentManager().getComponent();
-                Point location = component.getLocationOnScreen();
-                Dimension bounds = component.getSize();
-                toolWindowElement.setAttribute("x", String.valueOf(location.x));
-                toolWindowElement.setAttribute("y", String.valueOf(location.y));
-                toolWindowElement.setAttribute("width", String.valueOf(bounds.width));
-                toolWindowElement.setAttribute("height", String.valueOf(bounds.height));
             }
     };
 
@@ -306,6 +330,7 @@ public final class IDETracker implements Disposable {
      * This constructor initializes the IDE tracker.
      */
     IDETracker() throws ParserConfigurationException {
+        AOIMap = new HashMap<>();
         iDETracking.appendChild(root);
         root.appendChild(environment);
 
@@ -319,7 +344,6 @@ public final class IDETracker implements Disposable {
         environment.setAttribute("java_version", System.getProperty("java.version"));
         environment.setAttribute("ide_version", ApplicationInfo.getInstance().getFullVersion());
         environment.setAttribute("ide_name", ApplicationInfo.getInstance().getVersionName());
-        // FIXME Kaia: add environment attributes for original bounds of tool windows, the editor, windows, etc.
 
         root.appendChild(archives);
         root.appendChild(actions);
@@ -464,7 +488,7 @@ public final class IDETracker implements Disposable {
         editorEventMulticaster.addVisibleAreaListener(visibleAreaListener, () -> {
         });
         ToolWindowManagerEx toolWindowManager = (ToolWindowManagerEx) ToolWindowManager.getInstance(project);
-        // Record all current bounds of tool windows
+        // Record all current bounds of tool windows to map
         for (String id : toolWindowManager.getToolWindowIds()) {
             ToolWindow toolWindow = toolWindowManager.getToolWindow(id);
             if (toolWindow != null && toolWindow.isVisible()) {
@@ -473,12 +497,7 @@ public final class IDETracker implements Disposable {
                 initialToolWindowElement.setAttribute("AOI", toolWindow.getId());
                 initialToolWindowElement.setAttribute("event", "InitialWindow");
 
-                Rectangle bounds = toolWindow.getContentManager().getComponent().getBounds();
-                initialToolWindowElement.setAttribute("x", String.valueOf(bounds.x));
-                initialToolWindowElement.setAttribute("y", String.valueOf(bounds.y));
-                initialToolWindowElement.setAttribute("width", String.valueOf(bounds.width));
-                initialToolWindowElement.setAttribute("height", String.valueOf(bounds.height));
-
+                registerBoundsToElement(toolWindow, initialToolWindowElement);
                 toolWindows.appendChild(initialToolWindowElement);
             }
         }
@@ -607,6 +626,11 @@ public final class IDETracker implements Disposable {
         mouseElement.setAttribute("x", String.valueOf(mouseEvent.getXOnScreen()));
         mouseElement.setAttribute("y", String.valueOf(mouseEvent.getYOnScreen()));
         return mouseElement;
+    }
+
+    // This method passes the AOIBounds Map so the EyeTracker can determine which AOI gazes are in.
+    public Map<String, AOIBounds> getAOIMap() {
+        return this.AOIMap;
     }
 
     /**

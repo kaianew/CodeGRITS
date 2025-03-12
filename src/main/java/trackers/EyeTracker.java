@@ -249,6 +249,8 @@ public class EyeTracker implements Disposable {
         int relativeY = eyeY - editorY;
         if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
                 || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
+            // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
+            // If not, record as OOB. 
             gaze.setAttribute("remark", "Fail | Out of Text Editor");
             return;
         }
