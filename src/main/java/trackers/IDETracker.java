@@ -12,6 +12,10 @@ import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
+
+import java.util.*;
+
+import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -19,9 +23,6 @@ import org.w3c.dom.Element;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.io.*;
-import java.util.Arrays;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.function.Consumer;
 
 import com.intellij.openapi.Disposable;
@@ -33,6 +34,11 @@ import utils.RelativePathGetter;
 import utils.XMLWriter;
 
 import javax.xml.parsers.DocumentBuilderFactory;
+
+// Imports for tool window bounds recording.
+import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowManager;
+import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
 
 /**
  * This class is the IDE tracker.
@@ -53,6 +59,8 @@ public final class IDETracker implements Disposable {
     Element carets = iDETracking.createElement("carets");
     Element selections = iDETracking.createElement("selections");
     Element visibleAreas = iDETracking.createElement("visible_areas");
+    // Added to track bounds of tool windows resizing or opening.
+    Element toolWindows = iDETracking.createElement("tool_windows");
     String projectPath = "";
     String dataOutputPath = "";
     String lastSelectionInfo = "";
@@ -220,6 +228,54 @@ public final class IDETracker implements Disposable {
 
     };
 
+    // Listener for when the state of tool windows changes to record AOI bounds dynamically.
+    ToolWindowManagerListener toolWindowManagerListener = new ToolWindowManagerListener() {
+        // Enums for state changes do not work for when windows are shown. Thus, we maintain our own visibility states.
+        private final Map<String, Boolean> previousVisibilityState = new HashMap<>();
+        @Override
+        public void stateChanged(@NotNull ToolWindowManager toolWindowManager,
+                                 @NotNull ToolWindow toolWindow,
+                                 @NotNull ToolWindowManagerListener.ToolWindowManagerEventType changeType) {
+            if (!isTracking) return;
+            String windowId = toolWindow.getId();
+            boolean isCurrentlyVisible = toolWindow.isVisible();
+            boolean wasVisible = previousVisibilityState.getOrDefault(windowId, false);
+
+            // Only create an element if visibility was changed or window was movedorresized
+                if (isCurrentlyVisible != wasVisible ||
+                        changeType == ToolWindowManagerListener.ToolWindowManagerEventType.MovedOrResized) {
+                    Element toolWindowElement = iDETracking.createElement("tool_window");
+                    toolWindowElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                    toolWindowElement.setAttribute("AOI", windowId);
+                    if (changeType == ToolWindowManagerEventType.HideToolWindow) {
+                        toolWindowElement.setAttribute("event", "WindowHidden");
+                        toolWindows.appendChild(toolWindowElement);
+                    }
+                    else if (changeType == ToolWindowManagerEventType.MovedOrResized) {
+                        toolWindowElement.setAttribute("event", "WindowChanged");
+                        addBoundsToElement(toolWindow, toolWindowElement);
+                        toolWindows.appendChild(toolWindowElement);
+                    }
+                    else if (changeType == ToolWindowManagerEventType.ActivateToolWindow) {
+                        // Tool window was just shown.
+                        toolWindowElement.setAttribute("event", "WindowShown");
+                        addBoundsToElement(toolWindow, toolWindowElement);
+                        toolWindows.appendChild(toolWindowElement);
+                    }
+                }
+                previousVisibilityState.put(windowId, isCurrentlyVisible);
+            }
+            private void addBoundsToElement(ToolWindow toolWindow, Element toolWindowElement) {
+                Component component = toolWindow.getContentManager().getComponent();
+                Point location = component.getLocationOnScreen();
+                Dimension bounds = component.getSize();
+                toolWindowElement.setAttribute("x", String.valueOf(location.x));
+                toolWindowElement.setAttribute("y", String.valueOf(location.y));
+                toolWindowElement.setAttribute("width", String.valueOf(bounds.width));
+                toolWindowElement.setAttribute("height", String.valueOf(bounds.height));
+            }
+    };
+
     /**
      * This variable is the editor event multicaster for the IDE tracker.
      * It is used to add and remove all the listeners.
@@ -263,6 +319,7 @@ public final class IDETracker implements Disposable {
         environment.setAttribute("java_version", System.getProperty("java.version"));
         environment.setAttribute("ide_version", ApplicationInfo.getInstance().getFullVersion());
         environment.setAttribute("ide_name", ApplicationInfo.getInstance().getVersionName());
+        // FIXME Kaia: add environment attributes for original bounds of tool windows, the editor, windows, etc.
 
         root.appendChild(archives);
         root.appendChild(actions);
@@ -272,6 +329,7 @@ public final class IDETracker implements Disposable {
         root.appendChild(carets);
         root.appendChild(selections);
         root.appendChild(visibleAreas);
+        root.appendChild(toolWindows);
 
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(
                 AnActionListener.TOPIC, new AnActionListener() {
@@ -405,6 +463,27 @@ public final class IDETracker implements Disposable {
         });
         editorEventMulticaster.addVisibleAreaListener(visibleAreaListener, () -> {
         });
+        ToolWindowManagerEx toolWindowManager = (ToolWindowManagerEx) ToolWindowManager.getInstance(project);
+        // Record all current bounds of tool windows
+        for (String id : toolWindowManager.getToolWindowIds()) {
+            ToolWindow toolWindow = toolWindowManager.getToolWindow(id);
+            if (toolWindow != null && toolWindow.isVisible()) {
+                Element initialToolWindowElement = iDETracking.createElement("tool_window");
+                initialToolWindowElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                initialToolWindowElement.setAttribute("AOI", toolWindow.getId());
+                initialToolWindowElement.setAttribute("event", "InitialWindow");
+
+                Rectangle bounds = toolWindow.getContentManager().getComponent().getBounds();
+                initialToolWindowElement.setAttribute("x", String.valueOf(bounds.x));
+                initialToolWindowElement.setAttribute("y", String.valueOf(bounds.y));
+                initialToolWindowElement.setAttribute("width", String.valueOf(bounds.width));
+                initialToolWindowElement.setAttribute("height", String.valueOf(bounds.height));
+
+                toolWindows.appendChild(initialToolWindowElement);
+            }
+        }
+        // Add listener for tool windows
+        toolWindowManager.addToolWindowManagerListener(toolWindowManagerListener);
         FileEditorManager fileEditorManager = FileEditorManager.getInstance(project);
         for (VirtualFile file : fileEditorManager.getOpenFiles()) {
             archiveFile(file.getPath(), String.valueOf(System.currentTimeMillis()), "fileOpened", null);
