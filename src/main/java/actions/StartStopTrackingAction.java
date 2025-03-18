@@ -101,7 +101,7 @@ public class StartStopTrackingAction extends AnAction {
                 iDETracker.startTracking(e.getProject());
 
                 if (config.getCheckBoxes().get(1)) {
-                    eyeTracker = new EyeTracker();
+                    eyeTracker = new EyeTracker(iDETracker);
                     eyeTracker.setProjectPath(projectPath);
                     eyeTracker.setDataOutputPath(realDataOutputPath);
                     eyeTracker.setPythonInterpreter(config.getPythonInterpreter());

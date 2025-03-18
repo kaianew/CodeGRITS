@@ -28,6 +28,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -63,8 +64,8 @@ public class EyeTracker implements Disposable {
     String pythonScriptMouse;
     int deviceIndex = 0;
     // This enum determines which eye is dominant, which affects the x,y calculation
-    // FIXME: after this debacle, check to make sure Psifile is using the proper x, y
     EyeEnum dominantEye;
+    private IDETracker ideTracker;
 
     /**
      * This variable indicates whether the real-time data is transmitting.
@@ -78,7 +79,8 @@ public class EyeTracker implements Disposable {
     /**
      * This is the default constructor.
      */
-    public EyeTracker() throws ParserConfigurationException {
+    public EyeTracker(IDETracker iDETracker) throws ParserConfigurationException {
+        this.ideTracker = iDETracker;
 
         eyeTracking.appendChild(root);
         root.appendChild(setting);
@@ -120,19 +122,19 @@ public class EyeTracker implements Disposable {
      * @param sampleFrequency   The sample frequency of the eye tracker.
      * @param isUsingMouse      Whether the mouse is used as the eye tracker.
      */
-    public EyeTracker(String pythonInterpreter, double sampleFrequency, boolean isUsingMouse) throws ParserConfigurationException {
-        // designed specifically for the real-time data API
-        this(); // call default constructor
-        if (isUsingMouse) {
-            deviceIndex = 0;
-        } else {
-            deviceIndex = 1;
-        }
-        this.pythonInterpreter = pythonInterpreter;
-        this.sampleFrequency = sampleFrequency;
-        setPythonScriptMouse();
-        setPythonScriptTobii();
-    }
+//    public EyeTracker(String pythonInterpreter, double sampleFrequency, boolean isUsingMouse) throws ParserConfigurationException {
+//        // designed specifically for the real-time data API
+//        this(); // call default constructor
+//        if (isUsingMouse) {
+//            deviceIndex = 0;
+//        } else {
+//            deviceIndex = 1;
+//        }
+//        this.pythonInterpreter = pythonInterpreter;
+//        this.sampleFrequency = sampleFrequency;
+//        setPythonScriptMouse();
+//        setPythonScriptTobii();
+//    }
 
     /**
      * The listener for the visible area used for filtering the eye tracking data.
@@ -250,8 +252,22 @@ public class EyeTracker implements Disposable {
         if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
                 || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
             // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
-            // If not, record as OOB. 
-            gaze.setAttribute("remark", "Fail | Out of Text Editor");
+            // If not, record as OOB.
+            Map<String, IDETracker.AOIBounds> AOIMap = ideTracker.getAOIMap();
+            boolean AOIFound = false;
+            for (String AOI : AOIMap.keySet()) {
+                IDETracker.AOIBounds bounds = AOIMap.get(AOI);
+                if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
+                bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
+                    // We are in this AOI.
+                    AOIFound = true;
+                    gaze.setAttribute("AOI", AOI);
+                    break;
+                }
+            }
+            if (!AOIFound) {
+                gaze.setAttribute("AOI", "OOB");
+            }
             return;
         }
 
@@ -269,6 +285,7 @@ public class EyeTracker implements Disposable {
                 location.setAttribute("line", String.valueOf(logicalPosition.line));
                 location.setAttribute("column", String.valueOf(logicalPosition.column));
                 location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
+                gaze.setAttribute("AOI", "Editor");
                 gaze.appendChild(location);
                 Element aSTStructure = getASTStructureElement(psiElement);
                 gaze.appendChild(aSTStructure);
