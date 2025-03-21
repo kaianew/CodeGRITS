@@ -337,6 +337,8 @@ public final class IDETracker implements Disposable {
         popupElement.setAttribute("height", String.valueOf(size.height));
         // make AOIBounds and add to stack
 
+        LOG.info("we are recording popup bounds in the map");
+        LOG.info(popupId);
         AOIBounds bounds = new AOIBounds(loc.x, loc.y, size.width, size.height, popupId);
         AOIMap.put(popupId, bounds);
         popups.appendChild(popupElement);
