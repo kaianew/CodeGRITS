@@ -3,6 +3,8 @@ package trackers;
 import javax.swing.*;
 import javax.xml.parsers.*;
 import javax.xml.transform.TransformerException;
+
+import com.intellij.ide.actions.BigPopupUI;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereManager;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereUI;
 
@@ -25,6 +27,7 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
 import java.awt.event.WindowEvent;
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.util.*;
 
 import com.intellij.openapi.wm.WindowManager;
@@ -324,15 +327,16 @@ public final class IDETracker implements Disposable {
             }
     };
 
-    private void recordPopupBounds(Component content, SearchEverywhereUI ui, String popupId, String eventType) {
+    private void recordPopupBounds(SearchEverywhereUI ui, String popupId, String eventType) {
         Element popupElement = iDETracking.createElement("popup");
         popupElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
         popupElement.setAttribute("event", eventType);
         popupElement.setAttribute("AOI", popupId);
 
         if (!eventType.equals("PopupClosed")) {
-            Point loc = content.getLocationOnScreen();
-            Dimension size = ui.getExpandedSize();
+            Point loc = ui.getLocationOnScreen();
+            // Supposed to use the underlying viewType variable to get this info
+            Dimension size = ui.getPreferredSize();
             popupElement.setAttribute("x", String.valueOf(loc.x));
             popupElement.setAttribute("y", String.valueOf(loc.y));
             popupElement.setAttribute("width", String.valueOf(size.width));
@@ -349,16 +353,9 @@ public final class IDETracker implements Disposable {
     // Pushes to the AOIStack, which records windows that may overlay
     JBPopupListener popupListener = new JBPopupListener() {
         @Override
-        public void beforeShown(@NotNull LightweightWindowEvent event) {
-            // Nothing here, Action handles it (although we might want to have a component listener so we handle resizes/moves)
-        }
-
-        @Override
         public void onClosed(@NotNull LightweightWindowEvent event) {
             if (!isTracking) return;
             if (!SEOpen) return; // if the search everywhere popup isn't open, don't record closing it
-            JBPopup popup = event.asPopup();
-            Component content = popup.getContent();
             String popupId = "SearchEverywhere";
             if (!AOIStack.empty()) {
                 AOIStack.pop();
@@ -456,28 +453,44 @@ public final class IDETracker implements Disposable {
                                     SearchEverywhereManager manager = SearchEverywhereManager.getInstance(project);
                                     if (manager.isShown()) {
                                         SearchEverywhereUI ui = manager.getCurrentlyShownUI();
-                                        Component[] components = ui.getComponents();
-                                        // We don't necessarily know which of the components is the jbpopup, which is annoying
-                                        for (Component component : components) {
-                                            Window window = SwingUtilities.getWindowAncestor(component);
-                                            if (window instanceof JWindow) {
-                                                JRootPane rootPane = ((JWindow) window).getRootPane();
-                                                if (rootPane != null) {
-                                                    Object popup = ((JComponent)rootPane).getClientProperty("JBPopup");
-                                                    if (popup instanceof JBPopup) {
-                                                        JBPopup jbPopup = (JBPopup) popup;
-                                                        Component content = jbPopup.getContent();
-                                                        String popupId = "SearchEverywhere";
-                                                        // FIXME: try to add resizing events once you get the open/close events ok. May want to just write component listener
-                                                        // adds to stack, records to xml
-                                                        recordPopupBounds(content, ui, popupId, "PopupOpened");
-                                                        // can tell when popup closes.
-                                                        jbPopup.addListener(popupListener);
-                                                        break;
-                                                    }
+                                        // Attach the viewTypeListener
+                                        BigPopupUI.ViewTypeListener viewTypeListener = new BigPopupUI.ViewTypeListener() {
+                                            @Override
+                                            public void suggestionsShown(@NotNull BigPopupUI.ViewType viewType) {
+                                                // viewType will either be FULL or SHORT, depending on the length of the panel
+                                                // Record size of the popup
+                                                SearchEverywhereManager manager = SearchEverywhereManager.getInstance(project);
+                                                if (manager.isShown()) {
+                                                    String popupId = "SearchEverywhere";
+                                                    // adds to stack, records to xml
+                                                    // FIXME: ui may not be correct
+                                                    recordPopupBounds(ui, popupId, "PopupViewChanged");
                                                 }
                                             }
+                                        };
+                                        ui.addViewTypeListener(viewTypeListener);
+                                        // Use encapsulation-breaking reflective access to get the private myBalloon variable of the manager
+                                        Field balloonField;
+                                        try {
+                                            balloonField = manager.getClass().getDeclaredField("myBalloon");
+                                        } catch (NoSuchFieldException e) {
+                                            LOG.info("No myBalloon field in the SearchEverywhereManager.");
+                                            throw new RuntimeException(e);
                                         }
+                                        balloonField.setAccessible(true);
+                                        JBPopup popup;
+                                        try {
+                                            popup = (JBPopup) balloonField.get(manager);
+                                        } catch (IllegalAccessException e) {
+                                            LOG.info("Illegal access of myBalloon.");
+                                            throw new RuntimeException(e);
+                                        }
+                                        String popupId = "SearchEverywhere";
+                                        // FIXME: try to add resizing events once you get the open/close events ok. May want to just write component listener
+                                        // adds to stack, records to xml
+                                        recordPopupBounds(ui, popupId, "PopupOpened");
+                                        // can tell when popup closes.
+                                        popup.addListener(popupListener);
                                     }
                                 });
                             }
