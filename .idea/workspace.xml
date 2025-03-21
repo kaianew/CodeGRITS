@@ -6,8 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="14bb91d1-ebd0-4f11-b77e-711543adf329" name="Changes" comment="refresh">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/actions/StartStopTrackingAction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/actions/StartStopTrackingAction.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/trackers/EyeTracker.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/trackers/EyeTracker.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/trackers/IDETracker.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/trackers/IDETracker.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -90,7 +89,7 @@
     &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.editor.code.editing&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -335,6 +334,29 @@
       <workItem from="1741788226557" duration="398000" />
       <workItem from="1741788647336" duration="2662000" />
       <workItem from="1741791336527" duration="321000" />
+      <workItem from="1742391251232" duration="115000" />
+      <workItem from="1742391379143" duration="470000" />
+      <workItem from="1742391871423" duration="483000" />
+      <workItem from="1742392378092" duration="1653000" />
+      <workItem from="1742394143988" duration="127000" />
+      <workItem from="1742394283857" duration="282000" />
+      <workItem from="1742394585465" duration="238000" />
+      <workItem from="1742394845256" duration="2503000" />
+      <workItem from="1742405632062" duration="835000" />
+      <workItem from="1742406490852" duration="676000" />
+      <workItem from="1742407190681" duration="692000" />
+      <workItem from="1742409414869" duration="400000" />
+      <workItem from="1742409834934" duration="370000" />
+      <workItem from="1742410226301" duration="212000" />
+      <workItem from="1742410460247" duration="1030000" />
+      <workItem from="1742411514721" duration="388000" />
+      <workItem from="1742411928188" duration="975000" />
+      <workItem from="1742415474168" duration="704000" />
+      <workItem from="1742417161043" duration="622000" />
+      <workItem from="1742417803644" duration="647000" />
+      <workItem from="1742418475562" duration="440000" />
+      <workItem from="1742418938775" duration="312000" />
+      <workItem from="1742568751230" duration="417000" />
     </task>
     <task id="LOCAL-00001" summary="fix api bug">
       <option name="closed" value="true" />
@@ -408,5 +430,9 @@
     <MESSAGE value="update action" />
     <MESSAGE value="refresh" />
     <option name="LAST_COMMIT_MESSAGE" value="refresh" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>

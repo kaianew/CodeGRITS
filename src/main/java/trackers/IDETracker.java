@@ -1,8 +1,12 @@
 package trackers;
 
+import javax.swing.*;
 import javax.xml.parsers.*;
 import javax.xml.transform.TransformerException;
+import com.intellij.ide.actions.searcheverywhere.SearchEverywhereManager;
+import com.intellij.ide.actions.searcheverywhere.SearchEverywhereUI;
 
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.editor.*;
 import com.intellij.openapi.editor.event.*;
@@ -11,10 +15,19 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.popup.JBPopup;
+import com.intellij.openapi.ui.popup.JBPopupFactory;
+import com.intellij.openapi.ui.popup.JBPopupListener;
+import com.intellij.openapi.ui.popup.LightweightWindowEvent;
 import com.intellij.openapi.vfs.VirtualFile;
 
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.awt.event.WindowEvent;
+import java.lang.reflect.Array;
 import java.util.*;
 
+import com.intellij.openapi.wm.WindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
@@ -23,6 +36,7 @@ import org.w3c.dom.Element;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.io.*;
+import java.util.Timer;
 import java.util.function.Consumer;
 
 import com.intellij.openapi.Disposable;
@@ -59,11 +73,16 @@ public final class IDETracker implements Disposable {
     Element carets = iDETracking.createElement("carets");
     Element selections = iDETracking.createElement("selections");
     Element visibleAreas = iDETracking.createElement("visible_areas");
-    // Added to track bounds of tool windows resizing or opening.
+    // Added to track bounds of tool windows opening, resizing, and closing.
     Element toolWindows = iDETracking.createElement("tool_windows");
+    // Added to track bounds of popups opening, resizing, and closing.
+    Element popups = iDETracking.createElement("popups");
     String projectPath = "";
     String dataOutputPath = "";
     String lastSelectionInfo = "";
+    // for debugging purposes
+    private static final Logger LOG = Logger.getInstance(IDETracker.class);
+    private boolean SEOpen = false;
 
     /**
      * This variable indicates whether the data is transmitted in real time.
@@ -79,7 +98,8 @@ public final class IDETracker implements Disposable {
         public int y;
         public int width;
         public int height;
-        public AOIBounds(int x, int y, int width, int height) {
+        public String id;
+        public AOIBounds(int x, int y, int width, int height, String id) {
             this.x = x;
             this.y = y;
             this.width = width;
@@ -89,6 +109,10 @@ public final class IDETracker implements Disposable {
     // Variable for keeping track of visible AOIs and their bounds throughout recording.
     // The ToolWindowListener edits this, and the getAOIMap function allows the EyeTracker class to access it.
     private Map<String, AOIBounds> AOIMap;
+    // Variable for keeping track of popups, dialog windows, and context windows and their AOIs.
+    // These can overlay on top of each other, so we go through the stack in order checking for these bounds first.
+    // If the gaze is not in any of these, or if the AOIStack is empty, go to the normal map AOIs.
+    private Stack<AOIBounds> AOIStack;
 
     /**
      * This variable is the document listener for the IDE tracker. When the document is changed, if the {@code EditorKind} is {@code CONSOLE}, the console output is archived. Otherwise, the {@code changedFilepath} and {@code changedFileText} are updated.
@@ -255,7 +279,7 @@ public final class IDETracker implements Disposable {
         toolWindowElement.setAttribute("height", String.valueOf(bounds.height));
 
         // add to map
-        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height);
+        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, toolWindow.getId());
         AOIMap.put(toolWindow.getId(), loc);
     }
 
@@ -300,6 +324,53 @@ public final class IDETracker implements Disposable {
             }
     };
 
+    private void recordPopupBounds(Component content, SearchEverywhereUI ui, String popupId, String eventType) {
+        Element popupElement = iDETracking.createElement("popup");
+        popupElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+        popupElement.setAttribute("event", eventType);
+        popupElement.setAttribute("AOI", popupId);
+
+        if (!eventType.equals("PopupClosed")) {
+            Point loc = content.getLocationOnScreen();
+            Dimension size = ui.getExpandedSize();
+            popupElement.setAttribute("x", String.valueOf(loc.x));
+            popupElement.setAttribute("y", String.valueOf(loc.y));
+            popupElement.setAttribute("width", String.valueOf(size.width));
+            popupElement.setAttribute("height", String.valueOf(size.height));
+            // make AOIBounds and add to stack
+
+            AOIBounds bounds = new AOIBounds(loc.x, loc.y, size.width, size.height, popupId);
+            AOIStack.push(bounds);
+        }
+        popups.appendChild(popupElement);
+    }
+
+    // Listener for JBPopups, which should include the "Search Everywhere" window
+    // Pushes to the AOIStack, which records windows that may overlay
+    JBPopupListener popupListener = new JBPopupListener() {
+        @Override
+        public void beforeShown(@NotNull LightweightWindowEvent event) {
+            // Nothing here, Action handles it (although we might want to have a component listener so we handle resizes/moves)
+        }
+
+        @Override
+        public void onClosed(@NotNull LightweightWindowEvent event) {
+            if (!isTracking) return;
+            if (!SEOpen) return; // if the search everywhere popup isn't open, don't record closing it
+            JBPopup popup = event.asPopup();
+            Component content = popup.getContent();
+            String popupId = "SearchEverywhere";
+            if (!AOIStack.empty()) {
+                AOIStack.pop();
+            }
+            Element popupElement = iDETracking.createElement("popup");
+            popupElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+            popupElement.setAttribute("event", "PopupClosed");
+            popupElement.setAttribute("AOI", popupId);
+            popups.appendChild(popupElement);
+            SEOpen = false;
+        }
+    };
     /**
      * This variable is the editor event multicaster for the IDE tracker.
      * It is used to add and remove all the listeners.
@@ -331,6 +402,7 @@ public final class IDETracker implements Disposable {
      */
     IDETracker() throws ParserConfigurationException {
         AOIMap = new HashMap<>();
+        AOIStack = new Stack<>();
         iDETracking.appendChild(root);
         root.appendChild(environment);
 
@@ -354,6 +426,7 @@ public final class IDETracker implements Disposable {
         root.appendChild(selections);
         root.appendChild(visibleAreas);
         root.appendChild(toolWindows);
+        root.appendChild(popups);
 
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(
                 AnActionListener.TOPIC, new AnActionListener() {
@@ -369,6 +442,45 @@ public final class IDETracker implements Disposable {
                                     RelativePathGetter.getRelativePath(virtualFile.getPath(), projectPath) : null);
                             actions.appendChild(actionElement);
                             handleElement(actionElement);
+
+                            LOG.info("we're handling an action, Kaia");
+                            // Handle the SearchEverywhere popup
+                            String actionId = ActionManager.getInstance().getId(action);
+                            if ("SearchEverywhere".equals(actionId)) {
+                                // The SE popup is now open, so we set SEOpen to true
+                                SEOpen = true;
+                                LOG.info("Action is search everywhere");
+                                ApplicationManager.getApplication().invokeLater(() -> {
+                                    // Get the popup from the action and add our listener
+                                    Project project = event.getProject();
+                                    SearchEverywhereManager manager = SearchEverywhereManager.getInstance(project);
+                                    if (manager.isShown()) {
+                                        SearchEverywhereUI ui = manager.getCurrentlyShownUI();
+                                        Component[] components = ui.getComponents();
+                                        // We don't necessarily know which of the components is the jbpopup, which is annoying
+                                        for (Component component : components) {
+                                            Window window = SwingUtilities.getWindowAncestor(component);
+                                            if (window instanceof JWindow) {
+                                                JRootPane rootPane = ((JWindow) window).getRootPane();
+                                                if (rootPane != null) {
+                                                    Object popup = ((JComponent)rootPane).getClientProperty("JBPopup");
+                                                    if (popup instanceof JBPopup) {
+                                                        JBPopup jbPopup = (JBPopup) popup;
+                                                        Component content = jbPopup.getContent();
+                                                        String popupId = "SearchEverywhere";
+                                                        // FIXME: try to add resizing events once you get the open/close events ok. May want to just write component listener
+                                                        // adds to stack, records to xml
+                                                        recordPopupBounds(content, ui, popupId, "PopupOpened");
+                                                        // can tell when popup closes.
+                                                        jbPopup.addListener(popupListener);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
                         }
                     }
 
@@ -452,8 +564,8 @@ public final class IDETracker implements Disposable {
                         }
                     }
                 });
-
-        timer.schedule(timerTask, 0, 1);
+                // FIXME: is this timer what makes it so slow to open the config file?
+                timer.schedule(timerTask, 0, 1);
     }
 
     /**
@@ -631,6 +743,11 @@ public final class IDETracker implements Disposable {
     // This method passes the AOIBounds Map so the EyeTracker can determine which AOI gazes are in.
     public Map<String, AOIBounds> getAOIMap() {
         return this.AOIMap;
+    }
+
+    // This method passes the AOIBounds Stack which keeps track of potentially-overlapping AOIs to the EyeTracker.
+    public Stack<AOIBounds> getAOIStack() {
+        return this.AOIStack;
     }
 
     /**
