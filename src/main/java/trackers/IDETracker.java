@@ -112,10 +112,6 @@ public final class IDETracker implements Disposable {
     // Variable for keeping track of visible AOIs and their bounds throughout recording.
     // The ToolWindowListener edits this, and the getAOIMap function allows the EyeTracker class to access it.
     private Map<String, AOIBounds> AOIMap;
-    // Variable for keeping track of popups, dialog windows, and context windows and their AOIs.
-    // These can overlay on top of each other, so we go through the stack in order checking for these bounds first.
-    // If the gaze is not in any of these, or if the AOIStack is empty, go to the normal map AOIs.
-    private Stack<AOIBounds> AOIStack;
 
     /**
      * This variable is the document listener for the IDE tracker. When the document is changed, if the {@code EditorKind} is {@code CONSOLE}, the console output is archived. Otherwise, the {@code changedFilepath} and {@code changedFileText} are updated.
@@ -332,34 +328,28 @@ public final class IDETracker implements Disposable {
         popupElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
         popupElement.setAttribute("event", eventType);
         popupElement.setAttribute("AOI", popupId);
+        Point loc = ui.getLocationOnScreen();
+        // Supposed to use the underlying viewType variable to get this info
+        Dimension size = ui.getPreferredSize();
+        popupElement.setAttribute("x", String.valueOf(loc.x));
+        popupElement.setAttribute("y", String.valueOf(loc.y));
+        popupElement.setAttribute("width", String.valueOf(size.width));
+        popupElement.setAttribute("height", String.valueOf(size.height));
+        // make AOIBounds and add to stack
 
-        if (!eventType.equals("PopupClosed")) {
-            Point loc = ui.getLocationOnScreen();
-            // Supposed to use the underlying viewType variable to get this info
-            Dimension size = ui.getPreferredSize();
-            popupElement.setAttribute("x", String.valueOf(loc.x));
-            popupElement.setAttribute("y", String.valueOf(loc.y));
-            popupElement.setAttribute("width", String.valueOf(size.width));
-            popupElement.setAttribute("height", String.valueOf(size.height));
-            // make AOIBounds and add to stack
-
-            AOIBounds bounds = new AOIBounds(loc.x, loc.y, size.width, size.height, popupId);
-            AOIStack.push(bounds);
-        }
+        AOIBounds bounds = new AOIBounds(loc.x, loc.y, size.width, size.height, popupId);
+        AOIMap.put(popupId, bounds);
         popups.appendChild(popupElement);
     }
 
-    // Listener for JBPopups, which should include the "Search Everywhere" window
-    // Pushes to the AOIStack, which records windows that may overlay
+    // Listener for the "Search Everywhere" window
     JBPopupListener popupListener = new JBPopupListener() {
         @Override
         public void onClosed(@NotNull LightweightWindowEvent event) {
             if (!isTracking) return;
             if (!SEOpen) return; // if the search everywhere popup isn't open, don't record closing it
             String popupId = "SearchEverywhere";
-            if (!AOIStack.empty()) {
-                AOIStack.pop();
-            }
+            AOIMap.remove(popupId);
             Element popupElement = iDETracking.createElement("popup");
             popupElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
             popupElement.setAttribute("event", "PopupClosed");
@@ -399,7 +389,6 @@ public final class IDETracker implements Disposable {
      */
     IDETracker() throws ParserConfigurationException {
         AOIMap = new HashMap<>();
-        AOIStack = new Stack<>();
         iDETracking.appendChild(root);
         root.appendChild(environment);
 
@@ -462,8 +451,7 @@ public final class IDETracker implements Disposable {
                                                 SearchEverywhereManager manager = SearchEverywhereManager.getInstance(project);
                                                 if (manager.isShown()) {
                                                     String popupId = "SearchEverywhere";
-                                                    // adds to stack, records to xml
-                                                    // FIXME: ui may not be correct
+                                                    // adds to map, records to xml
                                                     recordPopupBounds(ui, popupId, "PopupViewChanged");
                                                 }
                                             }
@@ -756,11 +744,6 @@ public final class IDETracker implements Disposable {
     // This method passes the AOIBounds Map so the EyeTracker can determine which AOI gazes are in.
     public Map<String, AOIBounds> getAOIMap() {
         return this.AOIMap;
-    }
-
-    // This method passes the AOIBounds Stack which keeps track of potentially-overlapping AOIs to the EyeTracker.
-    public Stack<AOIBounds> getAOIStack() {
-        return this.AOIStack;
     }
 
     /**
