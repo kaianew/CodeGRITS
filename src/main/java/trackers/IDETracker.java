@@ -1,6 +1,8 @@
 package trackers;
 
 import javax.swing.*;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import javax.xml.parsers.*;
 import javax.xml.transform.TransformerException;
 
@@ -18,19 +20,16 @@ import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopup;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.JBPopupListener;
 import com.intellij.openapi.ui.popup.LightweightWindowEvent;
 import com.intellij.openapi.vfs.VirtualFile;
 
+import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
-import java.awt.event.WindowEvent;
-import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.*;
 
-import com.intellij.openapi.wm.WindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
@@ -160,6 +159,62 @@ public final class IDETracker implements Disposable {
         @Override
         public void mouseReleased(@NotNull EditorMouseEvent e) {
             if (!isTracking) return;
+            // See if the mouse event opened a popup, so we can track it for AOI purposes
+            if (e.getMouseEvent().isPopupTrigger()) {
+                // Give the popup menu time to be created and shown
+                SwingUtilities.invokeLater(() -> {
+                    // Find all popup menus that are currently visible
+                    Window[] windows = Window.getWindows();
+                    for (Window window : windows) {
+                        if (window instanceof JWindow) {
+                            Component[] components = ((JWindow) window).getContentPane().getComponents();
+                            for (Component component : components) {
+                                if (component instanceof JPopupMenu) {
+                                    JPopupMenu popup = (JPopupMenu) component;
+                                    Element clickPopup = iDETracking.createElement("popup");
+                                    clickPopup.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                                    clickPopup.setAttribute("AOI", "ClickPopup");
+                                    clickPopup.setAttribute("event", "ClickPopupOpened");
+
+                                    Point loc = popup.getLocationOnScreen();
+                                    Dimension size = popup.getSize();
+                                    clickPopup.setAttribute("x", String.valueOf(loc.x));
+                                    clickPopup.setAttribute("y", String.valueOf(loc.y));
+                                    clickPopup.setAttribute("width", String.valueOf(size.width));
+                                    clickPopup.setAttribute("height", String.valueOf(size.height));
+
+                                    AOIBounds bounds = new AOIBounds(loc.x, loc.y, size.width, size.height, "ClickPopup");
+                                    AOIMap.put("ClickPopup", bounds);
+                                    popups.appendChild(clickPopup);
+                                    popup.addPopupMenuListener(new PopupMenuListener() {
+                                        @Override
+                                        public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                                            // empty because it's initially opened before
+                                        }
+
+                                        @Override
+                                        public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+                                            LOG.info("Popup becoming invisible.");
+                                            Element clickPopup = iDETracking.createElement("popup");
+                                            clickPopup.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                                            clickPopup.setAttribute("AOI", "ClickPopup");
+                                            clickPopup.setAttribute("event", "ClickPopupHidden");
+                                            AOIMap.remove("ClickPopup");
+                                            popups.appendChild(clickPopup);
+                                        }
+
+                                        @Override
+                                        public void popupMenuCanceled(PopupMenuEvent e) {
+                                            LOG.info("Popup becoming canceled.");
+                                            popupMenuWillBecomeInvisible(e);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+            }
             Element mouseElement = getMouseElement(e, "mouseReleased");
             mouses.appendChild(mouseElement);
             handleElement(mouseElement);
@@ -323,7 +378,7 @@ public final class IDETracker implements Disposable {
             }
     };
 
-    private void recordPopupBounds(SearchEverywhereUI ui, String popupId, String eventType) {
+    private void recordSEBounds(SearchEverywhereUI ui, String popupId, String eventType) {
         Element popupElement = iDETracking.createElement("popup");
         popupElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
         popupElement.setAttribute("event", eventType);
@@ -454,7 +509,7 @@ public final class IDETracker implements Disposable {
                                                 if (manager.isShown()) {
                                                     String popupId = "SearchEverywhere";
                                                     // adds to map, records to xml
-                                                    recordPopupBounds(ui, popupId, "PopupViewChanged");
+                                                    recordSEBounds(ui, popupId, "PopupViewChanged");
                                                 }
                                             }
                                         };
@@ -478,7 +533,7 @@ public final class IDETracker implements Disposable {
                                         String popupId = "SearchEverywhere";
                                         // FIXME: try to add resizing events once you get the open/close events ok. May want to just write component listener
                                         // adds to stack, records to xml
-                                        recordPopupBounds(ui, popupId, "PopupOpened");
+                                        recordSEBounds(ui, popupId, "PopupOpened");
                                         // can tell when popup closes.
                                         popup.addListener(popupListener);
                                     }
