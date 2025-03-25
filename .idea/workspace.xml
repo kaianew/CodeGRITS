@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="14bb91d1-ebd0-4f11-b77e-711543adf329" name="Changes" comment="refresh">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/trackers/EyeTracker.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/trackers/EyeTracker.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/trackers/IDETracker.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/trackers/IDETracker.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -385,7 +386,12 @@
       <workItem from="1742836914260" duration="597000" />
       <workItem from="1742837532923" duration="143000" />
       <workItem from="1742837696296" duration="455000" />
-      <workItem from="1742838174297" duration="594000" />
+      <workItem from="1742838174297" duration="1912000" />
+      <workItem from="1742841278413" duration="587000" />
+      <workItem from="1742910241198" duration="3764000" />
+      <workItem from="1742914039861" duration="436000" />
+      <workItem from="1742914494664" duration="1401000" />
+      <workItem from="1742920011175" duration="588000" />
     </task>
     <task id="LOCAL-00001" summary="fix api bug">
       <option name="closed" value="true" />
