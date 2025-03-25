@@ -162,6 +162,11 @@ public final class IDETracker implements Disposable {
             if (!isTracking) return;
             Element mouseElement = getMouseElement(e, "mouseReleased");
             mouses.appendChild(mouseElement);
+            // Check to see if this mouse event was a popup trigger
+            if (e.getMouseEvent().isPopupTrigger()) {
+                // If it is, add listeners to this popup and its submenus
+                // Instead of using invoke later, try every 5 ms for
+            }
             handleElement(mouseElement);
 
         }
@@ -268,8 +273,7 @@ public final class IDETracker implements Disposable {
     };
 
     // Saves new bounds to AOI map and records to XML.
-    private void registerBoundsToElement(ToolWindow toolWindow, Element toolWindowElement) {
-        Component component = toolWindow.getContentManager().getComponent();
+    private void registerBoundsToElement(Component component, Element toolWindowElement, String id) {
         Point location = component.getLocationOnScreen();
         Dimension bounds = component.getSize();
         toolWindowElement.setAttribute("x", String.valueOf(location.x));
@@ -278,8 +282,8 @@ public final class IDETracker implements Disposable {
         toolWindowElement.setAttribute("height", String.valueOf(bounds.height));
 
         // add to map
-        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, toolWindow.getId());
-        AOIMap.put(toolWindow.getId(), loc);
+        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, id);
+        AOIMap.put(id, loc);
     }
 
     // Listener for when the state of tool windows changes to record AOI bounds dynamically.
@@ -309,13 +313,15 @@ public final class IDETracker implements Disposable {
                     }
                     else if (changeType == ToolWindowManagerEventType.MovedOrResized) {
                         toolWindowElement.setAttribute("event", "WindowChanged");
-                        registerBoundsToElement(toolWindow, toolWindowElement);
+                        Component component = toolWindow.getContentManager().getComponent();
+                        registerBoundsToElement(component, toolWindowElement, toolWindow.getId());
                         toolWindows.appendChild(toolWindowElement);
                     }
                     else if (changeType == ToolWindowManagerEventType.ActivateToolWindow) {
                         // Tool window was just shown.
                         toolWindowElement.setAttribute("event", "WindowShown");
-                        registerBoundsToElement(toolWindow, toolWindowElement);
+                        Component component = toolWindow.getContentManager().getComponent();
+                        registerBoundsToElement(component, toolWindowElement, toolWindow.getId());
                         toolWindows.appendChild(toolWindowElement);
                     }
                 }
@@ -612,7 +618,8 @@ public final class IDETracker implements Disposable {
                 initialToolWindowElement.setAttribute("AOI", toolWindow.getId());
                 initialToolWindowElement.setAttribute("event", "InitialWindow");
 
-                registerBoundsToElement(toolWindow, initialToolWindowElement);
+                Component component = toolWindow.getContentManager().getComponent();
+                registerBoundsToElement(component, initialToolWindowElement, toolWindow.getId());
                 toolWindows.appendChild(initialToolWindowElement);
             }
         }
