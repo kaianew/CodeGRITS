@@ -264,6 +264,18 @@ public class EyeTracker implements Disposable {
                 AOIfound = true;
             }
         }
+        // Next, check for Context menus, which will also overlay everything.
+        for (String AOI: AOIMap.keySet()) {
+            if (AOI.contains("ContextMenu")) {
+                IDETracker.AOIBounds bounds = AOIMap.get(AOI);
+                if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
+                        bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
+                    // We are in this AOI.
+                    gaze.setAttribute("AOI", AOI);
+                    AOIfound = true;
+                }
+            }
+        }
         if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
                 || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
             // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
