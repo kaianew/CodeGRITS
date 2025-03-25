@@ -1,6 +1,8 @@
 package trackers;
 
 import javax.swing.*;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import javax.xml.parsers.*;
 import javax.xml.transform.TransformerException;
 
@@ -23,14 +25,12 @@ import com.intellij.openapi.ui.popup.JBPopupListener;
 import com.intellij.openapi.ui.popup.LightweightWindowEvent;
 import com.intellij.openapi.vfs.VirtualFile;
 
+import java.awt.event.ActionEvent;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
-import java.awt.event.WindowEvent;
-import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.*;
 
-import com.intellij.openapi.wm.WindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
@@ -157,18 +157,74 @@ public final class IDETracker implements Disposable {
 
         }
 
+        private JPopupMenu findPopupOnScreen() {
+            JPopupMenu menu = null;
+            // Find all popup menus that are currently visible
+            Window[] windows = Window.getWindows();
+            for (Window window : windows) {
+                if (window instanceof JWindow) {
+                    Component[] components = ((JWindow) window).getContentPane().getComponents();
+                    for (Component component : components) {
+                        if (component instanceof JPopupMenu) {
+                            menu = (JPopupMenu) component;
+                        }
+                    }
+                }
+            }
+            // If menu is null, caller will wait 10ms and recall
+            return menu;
+        }
+
         @Override
         public void mouseReleased(@NotNull EditorMouseEvent e) {
             if (!isTracking) return;
             Element mouseElement = getMouseElement(e, "mouseReleased");
             mouses.appendChild(mouseElement);
             // Check to see if this mouse event was a popup trigger
+            // If it is, add listeners to this popup and its submenus
             if (e.getMouseEvent().isPopupTrigger()) {
-                // If it is, add listeners to this popup and its submenus
-                // Instead of using invoke later, try every 5 ms for
+                // In testing, popups which trigger that we look for may not have appeared, even with invoke later
+                // In this case, we keep trying every 10ms to find the popup
+                // This has to be final to be used inside a lambda, so that's why it's an array
+                final JPopupMenu[] popupRef = new JPopupMenu[1];
+                javax.swing.Timer timer = new javax.swing.Timer(50, (ActionEvent time_e) -> {
+                    popupRef[0] = findPopupOnScreen();
+                    if (popupRef[0] != null) {
+                        // Found it, stop the timer
+                        ((javax.swing.Timer) time_e.getSource()).stop();
+                        JPopupMenu popup = popupRef[0];
+                        Element contextMenu = iDETracking.createElement("popup");
+                        contextMenu.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                        contextMenu.setAttribute("AOI", "ContextMenu");
+                        contextMenu.setAttribute("event", "ContextMenuOpened");
+                        registerBoundsToElement(popup, contextMenu, "ContextMenu");
+                        popups.appendChild(contextMenu);
+                        popup.addPopupMenuListener(new PopupMenuListener() {
+                            @Override
+                            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                                // empty because it's initially opened before
+                            }
+                            @Override
+                            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+                                Element contextMenu = iDETracking.createElement("popup");
+                                contextMenu.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                                contextMenu.setAttribute("AOI", "ContextMenu");
+                                contextMenu.setAttribute("event", "ContextMenuHidden");
+                                AOIMap.remove("ContextMenu");
+                                popups.appendChild(contextMenu);
+                            }
+                            @Override
+                            public void popupMenuCanceled(PopupMenuEvent e) {
+                                popupMenuWillBecomeInvisible(e);
+                            }
+                        });
+                    }
+                    // Log if not found to calibrate how frequently we look for it
+                    LOG.info("none context menu");
+                });
+                timer.start();
             }
             handleElement(mouseElement);
-
         }
     };
 
