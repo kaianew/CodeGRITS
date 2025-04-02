@@ -23,9 +23,7 @@ import com.intellij.openapi.ui.popup.JBPopupListener;
 import com.intellij.openapi.ui.popup.LightweightWindowEvent;
 import com.intellij.openapi.vfs.VirtualFile;
 
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
-import java.awt.event.WindowEvent;
+import java.awt.event.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.*;
@@ -37,7 +35,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import java.awt.*;
-import java.awt.event.MouseEvent;
 import java.io.*;
 import java.util.Timer;
 import java.util.function.Consumer;
@@ -437,12 +434,13 @@ public final class IDETracker implements Disposable {
                             if ("SearchEverywhere".equals(actionId)) {
                                 // The SE popup is now open, so we set SEOpen to true
                                 SEOpen = true;
-                                LOG.info("Action is search everywhere");
-                                ApplicationManager.getApplication().invokeLater(() -> {
+                                // FIXME: change out invokelater
+                                javax.swing.Timer timer = new javax.swing.Timer(50, (ActionEvent time_e) -> {
                                     // Get the popup from the action and add our listener
                                     Project project = event.getProject();
                                     SearchEverywhereManager manager = SearchEverywhereManager.getInstance(project);
                                     if (manager.isShown()) {
+                                        ((javax.swing.Timer) time_e.getSource()).stop();
                                         SearchEverywhereUI ui = manager.getCurrentlyShownUI();
                                         // Attach the viewTypeListener
                                         BigPopupUI.ViewTypeListener viewTypeListener = new BigPopupUI.ViewTypeListener() {
@@ -476,13 +474,14 @@ public final class IDETracker implements Disposable {
                                             throw new RuntimeException(e);
                                         }
                                         String popupId = "SearchEverywhere";
-                                        // FIXME: try to add resizing events once you get the open/close events ok. May want to just write component listener
                                         // adds to stack, records to xml
                                         recordPopupBounds(ui, popupId, "PopupOpened");
                                         // can tell when popup closes.
                                         popup.addListener(popupListener);
                                     }
+                                    LOG.info("Didn't find the SearchEverywhere window yet.");
                                 });
+                                timer.start();
                             }
                         }
                     }
