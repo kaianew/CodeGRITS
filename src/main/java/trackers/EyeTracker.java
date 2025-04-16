@@ -96,6 +96,7 @@ public class EyeTracker implements Disposable {
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
+                // FIXME: if you want to add split screen ability, here would be the place. use getAllEditors on source
                 editor = source.getSelectedTextEditor();
                 if (editor != null) {
                     editor.getScrollingModel().addVisibleAreaListener(visibleAreaListener);
@@ -206,6 +207,7 @@ public class EyeTracker implements Disposable {
      */
     public void processRawData(String message) {
         if (!isTracking) return;
+        LOG.info("Here is the message" + message);
         Element gaze = getRawGazeElement(message);
         gazes.appendChild(gaze);
 
@@ -219,11 +221,6 @@ public class EyeTracker implements Disposable {
 
         if (leftGazePointX.equals("nan") || leftGazePointY.equals("nan") || rightGazePointX.equals("nan") || rightGazePointY.equals("nan")) {
             gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
-            return;
-        }
-
-        if (editor == null) {
-            gaze.setAttribute("remark", "Fail | No Editor");
             return;
         }
 
@@ -242,13 +239,14 @@ public class EyeTracker implements Disposable {
         }
         int eyeY = (int) ((Double.parseDouble(leftGazePointY) + Double.parseDouble(rightGazePointY)) / 2 * screenHeight);
 
-        int editorX, editorY;
-        try {
+        int editorX = 0;
+        int editorY = 0;
+        if (editor != null) {
             editorX = editor.getContentComponent().getLocationOnScreen().x;
             editorY = editor.getContentComponent().getLocationOnScreen().y;
-        } catch (IllegalComponentStateException e) {
-            gaze.setAttribute("remark", "Fail | No Editor");
-            return;
+        }
+        else  {
+            gaze.setAttribute("remark", "No Editor");
         }
         int relativeX = eyeX - editorX;
         int relativeY = eyeY - editorY;
@@ -264,24 +262,17 @@ public class EyeTracker implements Disposable {
                 AOIfound = true;
             }
         }
+        if (editor == null) {
+            // editor isn't open!
+            AOILookup(gaze, eyeX, eyeY, AOIMap, AOIfound);
+            handleElement(gaze);
+            return;
+        }
         if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
                 || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
-            // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
+            // In this case, the AOI is not the editor, though the editor is open. We check to see if it is any other available AOI.
             // If not, record as OOB.
-            if (!AOIfound) {
-                for (String AOI : AOIMap.keySet()) {
-                    IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                    if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
-                            bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
-                        // We are in this AOI.
-                        gaze.setAttribute("AOI", AOI);
-                        AOIfound = true;
-                    }
-                }
-            }
-            if (!AOIfound) {
-                gaze.setAttribute("AOI", "OOB");
-            }
+            AOILookup(gaze, eyeX, eyeY, AOIMap, AOIfound);
         }
         else {
             if (!AOIfound) {
@@ -311,6 +302,23 @@ public class EyeTracker implements Disposable {
                 handleElement(gaze);
             }
         }));
+    }
+
+    private void AOILookup(Element gaze, int eyeX, int eyeY, Map<String, IDETracker.AOIBounds> AOIMap, boolean AOIfound) {
+        if (!AOIfound) {
+            for (String AOI : AOIMap.keySet()) {
+                IDETracker.AOIBounds bounds = AOIMap.get(AOI);
+                if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
+                        bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
+                    // We are in this AOI.
+                    gaze.setAttribute("AOI", AOI);
+                    AOIfound = true;
+                }
+            }
+        }
+        if (!AOIfound) {
+            gaze.setAttribute("AOI", "OOB");
+        }
     }
 
     /**

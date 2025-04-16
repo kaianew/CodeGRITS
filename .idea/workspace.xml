@@ -6,7 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="14bb91d1-ebd0-4f11-b77e-711543adf329" name="Changes" comment="refresh">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/trackers/IDETracker.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/trackers/IDETracker.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/trackers/EyeTracker.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/trackers/EyeTracker.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -81,6 +81,7 @@
     &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
     &quot;ShowUsagesActions.previewPropertyKey&quot;: &quot;true&quot;,
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;extract.method.default.visibility&quot;: &quot;private&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/klnewman/Desktop/CodeGRITS&quot;,
@@ -373,6 +374,15 @@
       <workItem from="1742586938300" duration="229000" />
       <workItem from="1743602465119" duration="192000" />
       <workItem from="1743602681079" duration="78000" />
+      <workItem from="1743602778115" duration="1996000" />
+      <workItem from="1744815747346" duration="205000" />
+      <workItem from="1744821209794" duration="837000" />
+      <workItem from="1744822062408" duration="331000" />
+      <workItem from="1744822677982" duration="1037000" />
+      <workItem from="1744824035688" duration="341000" />
+      <workItem from="1744824396909" duration="218000" />
+      <workItem from="1744824636354" duration="875000" />
+      <workItem from="1744825536883" duration="665000" />
     </task>
     <task id="LOCAL-00001" summary="fix api bug">
       <option name="closed" value="true" />
