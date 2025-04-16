@@ -389,6 +389,8 @@ public class EyeTracker implements Disposable {
         String rightGazeValidity = rightInfo.split(", ")[2];
         String rightPupilDiameter = rightInfo.split(", ")[3];
         String rightPupilValidity = rightInfo.split(", ")[4];
+        String leftEyeBox = rightInfo.split(", ")[5];
+        String rightEyeBox = rightInfo.split(", ")[6];
 
         Element rawGaze = eyeTracking.createElement("gaze");
         Element leftEye = eyeTracking.createElement("left_eye");
@@ -404,12 +406,14 @@ public class EyeTracker implements Disposable {
         leftEye.setAttribute("gaze_validity", leftGazeValidity);
         leftEye.setAttribute("pupil_diameter", leftPupilDiameter);
         leftEye.setAttribute("pupil_validity", leftPupilValidity);
+        leftEye.setAttribute("left_in_box", leftEyeBox);
 
         rightEye.setAttribute("gaze_point_x", rightGazePointX);
         rightEye.setAttribute("gaze_point_y", rightGazePointY);
         rightEye.setAttribute("gaze_validity", rightGazeValidity);
         rightEye.setAttribute("pupil_diameter", rightPupilDiameter);
         rightEye.setAttribute("pupil_validity", rightPupilValidity);
+        rightEye.setAttribute("right_in_box", rightEyeBox);
 
         return rawGaze;
     }
@@ -496,7 +500,7 @@ public class EyeTracker implements Disposable {
                             
                             
                 def gaze_data_callback(gaze_data):
-                    message = '{}; {}, {}, {}, {}, {}; {}, {}, {}, {}, {}'.format(
+                    message = '{}; {}, {}, {}, {}, {}; {}, {}, {}, {}, {}, {}, {}'.format(
                         round(time.time() * 1000),
                         gaze_data['left_gaze_point_on_display_area'][0],
                         gaze_data['left_gaze_point_on_display_area'][1],
@@ -507,7 +511,9 @@ public class EyeTracker implements Disposable {
                         gaze_data['right_gaze_point_on_display_area'][1],
                         gaze_data['right_gaze_point_validity'],
                         gaze_data['right_pupil_diameter'],
-                        gaze_data['right_pupil_validity']
+                        gaze_data['right_pupil_validity'],
+                        gaze_data['left_gaze_origin_in_trackbox_coordinate_system'][2],
+                        gaze_data['right_gaze_origin_in_trackbox_coordinate_system'][2]
                     )
                     print(message)
                     sys.stdout.flush()
