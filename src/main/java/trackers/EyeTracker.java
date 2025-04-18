@@ -96,7 +96,7 @@ public class EyeTracker implements Disposable {
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                // FIXME: if you want to add split screen ability, here would be the place. use getAllEditors on source
+                // FIXME: if you want to add split screen ability, here would be the place
                 editor = source.getSelectedTextEditor();
                 if (editor != null) {
                     editor.getScrollingModel().addVisibleAreaListener(visibleAreaListener);
@@ -207,7 +207,6 @@ public class EyeTracker implements Disposable {
      */
     public void processRawData(String message) {
         if (!isTracking) return;
-        LOG.info("Here is the message" + message);
         Element gaze = getRawGazeElement(message);
         gazes.appendChild(gaze);
 
@@ -223,7 +222,6 @@ public class EyeTracker implements Disposable {
             gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
             return;
         }
-
         int eyeX;
         // Kaia 01_28_25: Use the X value from the dominant eye and the average of the Y values.
         switch(dominantEye) {
@@ -238,19 +236,48 @@ public class EyeTracker implements Disposable {
                 assert(false);
         }
         int eyeY = (int) ((Double.parseDouble(leftGazePointY) + Double.parseDouble(rightGazePointY)) / 2 * screenHeight);
+        Map<String, IDETracker.AOIBounds> AOIMap = ideTracker.getAOIMap();
+        if (editor == null) {
+            gaze.setAttribute("remark", "Fail | No Editor");
+            // Find AOI here.
+            boolean AOIfound = false;
+            // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
+            IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
+            if (popup != null) {
+                if (popup.x <= eyeX && eyeX <= (popup.x + popup.width) &&
+                        popup.y <= eyeY && eyeY <= (popup.y + popup.height)) {
+                    // We are in this AOI.
+                    gaze.setAttribute("AOI", "SearchEverywhere");
+                    AOIfound = true;
+                }
+            }
+            if (!AOIfound) {
+                for (String AOI : AOIMap.keySet()) {
+                    IDETracker.AOIBounds bounds = AOIMap.get(AOI);
+                    if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
+                            bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
+                        // We are in this AOI.
+                        gaze.setAttribute("AOI", AOI);
+                        AOIfound = true;
+                    }
+                }
+            }
+            if (!AOIfound) {
+                gaze.setAttribute("AOI", "OOB");
+            }
+            return;
+        }
 
-        int editorX = 0;
-        int editorY = 0;
-        if (editor != null) {
+        int editorX, editorY;
+        try {
             editorX = editor.getContentComponent().getLocationOnScreen().x;
             editorY = editor.getContentComponent().getLocationOnScreen().y;
-        }
-        else  {
-            gaze.setAttribute("remark", "No Editor");
+        } catch (IllegalComponentStateException e) {
+            gaze.setAttribute("remark", "Fail | No Editor");
+            return;
         }
         int relativeX = eyeX - editorX;
         int relativeY = eyeY - editorY;
-        Map<String, IDETracker.AOIBounds> AOIMap = ideTracker.getAOIMap();
         boolean AOIfound = false;
         // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
         IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
@@ -262,17 +289,24 @@ public class EyeTracker implements Disposable {
                 AOIfound = true;
             }
         }
-        if (editor == null) {
-            // editor isn't open!
-            AOILookup(gaze, eyeX, eyeY, AOIMap, AOIfound);
-            handleElement(gaze);
-            return;
-        }
         if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
                 || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
-            // In this case, the AOI is not the editor, though the editor is open. We check to see if it is any other available AOI.
+            // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
             // If not, record as OOB.
-            AOILookup(gaze, eyeX, eyeY, AOIMap, AOIfound);
+            if (!AOIfound) {
+                for (String AOI : AOIMap.keySet()) {
+                    IDETracker.AOIBounds bounds = AOIMap.get(AOI);
+                    if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
+                            bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
+                        // We are in this AOI.
+                        gaze.setAttribute("AOI", AOI);
+                        AOIfound = true;
+                    }
+                }
+            }
+            if (!AOIfound) {
+                gaze.setAttribute("AOI", "OOB");
+            }
         }
         else {
             if (!AOIfound) {
@@ -302,23 +336,6 @@ public class EyeTracker implements Disposable {
                 handleElement(gaze);
             }
         }));
-    }
-
-    private void AOILookup(Element gaze, int eyeX, int eyeY, Map<String, IDETracker.AOIBounds> AOIMap, boolean AOIfound) {
-        if (!AOIfound) {
-            for (String AOI : AOIMap.keySet()) {
-                IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
-                        bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
-                    // We are in this AOI.
-                    gaze.setAttribute("AOI", AOI);
-                    AOIfound = true;
-                }
-            }
-        }
-        if (!AOIfound) {
-            gaze.setAttribute("AOI", "OOB");
-        }
     }
 
     /**
@@ -389,8 +406,8 @@ public class EyeTracker implements Disposable {
         String rightGazeValidity = rightInfo.split(", ")[2];
         String rightPupilDiameter = rightInfo.split(", ")[3];
         String rightPupilValidity = rightInfo.split(", ")[4];
-        String leftEyeBox = rightInfo.split(", ")[5];
-        String rightEyeBox = rightInfo.split(", ")[6];
+        String leftTrackbox = rightInfo.split(", ")[5];
+        String rightTrackbox = rightInfo.split(", ")[6];
 
         Element rawGaze = eyeTracking.createElement("gaze");
         Element leftEye = eyeTracking.createElement("left_eye");
@@ -406,14 +423,14 @@ public class EyeTracker implements Disposable {
         leftEye.setAttribute("gaze_validity", leftGazeValidity);
         leftEye.setAttribute("pupil_diameter", leftPupilDiameter);
         leftEye.setAttribute("pupil_validity", leftPupilValidity);
-        leftEye.setAttribute("left_in_box", leftEyeBox);
+        leftEye.setAttribute("gaze_point_z", leftTrackbox);
 
         rightEye.setAttribute("gaze_point_x", rightGazePointX);
         rightEye.setAttribute("gaze_point_y", rightGazePointY);
         rightEye.setAttribute("gaze_validity", rightGazeValidity);
         rightEye.setAttribute("pupil_diameter", rightPupilDiameter);
         rightEye.setAttribute("pupil_validity", rightPupilValidity);
-        rightEye.setAttribute("right_in_box", rightEyeBox);
+        rightEye.setAttribute("gaze_point_z", rightTrackbox);
 
         return rawGaze;
     }

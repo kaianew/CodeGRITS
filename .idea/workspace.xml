@@ -84,7 +84,7 @@
     &quot;extract.method.default.visibility&quot;: &quot;private&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/klnewman/Desktop/CodeGRITS&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/klnewman/Desktop/patchwork_data/test/chart12&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -384,6 +384,11 @@
       <workItem from="1744824636354" duration="875000" />
       <workItem from="1744825536883" duration="1123000" />
       <workItem from="1744827789099" duration="540000" />
+      <workItem from="1744828352702" duration="589000" />
+      <workItem from="1744831202826" duration="19000" />
+      <workItem from="1744985160995" duration="1625000" />
+      <workItem from="1744987005191" duration="11000" />
+      <workItem from="1744987853272" duration="627000" />
     </task>
     <task id="LOCAL-00001" summary="fix api bug">
       <option name="closed" value="true" />
