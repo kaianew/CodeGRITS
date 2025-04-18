@@ -42,7 +42,6 @@ public class EyeTracker implements Disposable {
      */
     double sampleFrequency;
     PsiDocumentManager psiDocumentManager;
-    public Editor editor;
     /**
      * This variable is the XML document for storing the eye tracking data.
      */
@@ -57,7 +56,6 @@ public class EyeTracker implements Disposable {
     double screenWidth, screenHeight;
     String projectPath = "", filePath = "";
     PsiElement lastElement = null;
-    Rectangle visibleArea = null;
     Process pythonProcess;
     Thread pythonOutputThread;
     String pythonInterpreter = "";
@@ -93,30 +91,8 @@ public class EyeTracker implements Disposable {
         screenWidth = size.getWidth();
         screenHeight = size.getHeight();
 
-        ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
-            @Override
-            public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                // FIXME: if you want to add split screen ability, here would be the place
-                editor = source.getSelectedTextEditor();
-                if (editor != null) {
-                    editor.getScrollingModel().addVisibleAreaListener(visibleAreaListener);
-                }
-                filePath = file.getPath();
-                visibleArea = editor.getScrollingModel().getVisibleArea();
-            }
-
-            @Override
-            public void selectionChanged(@NotNull FileEditorManagerEvent event) {
-                editor = event.getManager().getSelectedTextEditor() != null ? event.getManager().getSelectedTextEditor() : editor;
-                if (event.getNewFile() != null) {
-                    if (editor != null) {
-                        editor.getScrollingModel().addVisibleAreaListener(visibleAreaListener);
-                    }
-                    filePath = event.getNewFile().getPath();
-                    visibleArea = editor.getScrollingModel().getVisibleArea();
-                }
-            }
-        });
+        // READ AND DELETE: FIXME: CLG deleted the code that set listeners to determine the active editor,
+        //  because that logic no longer serves us.
     }
 
     /**
@@ -139,11 +115,6 @@ public class EyeTracker implements Disposable {
 //        setPythonScriptMouse();
 //        setPythonScriptTobii();
 //    }
-
-    /**
-     * The listener for the visible area used for filtering the eye tracking data.
-     */
-    VisibleAreaListener visibleAreaListener = e -> visibleArea = e.getNewRectangle();
 
     /**
      * This method starts the eye tracking.
@@ -200,13 +171,9 @@ public class EyeTracker implements Disposable {
         isTracking = true;
     }
 
-    /**
-     * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
-     *
-     * @param message The raw data.
-     */
-    public void processRawData(String message) {
-        if (!isTracking) return;
+    private record EyeGazePoint(int eyeX, int eyeY, Element gaze) { } ;
+
+    private EyeGazePoint createPointFromMessage(String message) {
         Element gaze = getRawGazeElement(message);
         gazes.appendChild(gaze);
 
@@ -220,7 +187,7 @@ public class EyeTracker implements Disposable {
 
         if (leftGazePointX.equals("nan") || leftGazePointY.equals("nan") || rightGazePointX.equals("nan") || rightGazePointY.equals("nan")) {
             gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
-            return;
+            return null; // CLG THINKS this is OK, since the gaze is saved in gazes with the attribute.
         }
         int eyeX;
         // Kaia 01_28_25: Use the X value from the dominant eye and the average of the Y values.
@@ -236,6 +203,31 @@ public class EyeTracker implements Disposable {
                 assert(false);
         }
         int eyeY = (int) ((Double.parseDouble(leftGazePointY) + Double.parseDouble(rightGazePointY)) / 2 * screenHeight);
+        return new EyeGazePoint(eyeX, eyeY, gaze);
+
+    }
+    /**
+     * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
+     *
+     * @param message The raw data.
+     */
+    public void processRawData(String message) {
+        if (!isTracking) return;
+        // Step 1: CLG pulled out the part that parses out the eyeX/eyeY from message to its own function, above
+        EyeGazePoint gazePoint = createPointFromMessage(message);
+
+        // Step 2: FIXME KAIA: determine the AOI
+        // I recommend having that functionality in a separate method and having it simply
+        // return a an indicator of the AOI type.  I think an enum would be better than a String,
+        // and you just convert it to a string for the purpose of the call to SetATtribute.
+        // then, you use the returned AOI type to setATtribute for the gaze and, if the AOI is
+        // an editor, you know that the third step in this function should be to determine AST type.
+
+        // Step 3: FIXME KAIA: if the AOI is an editor, then figure out the AST element.
+        // as above.
+
+        // those steps are likely to benefit from being largely in separate functions, to keep things tidy.
+
         Map<String, IDETracker.AOIBounds> AOIMap = ideTracker.getAOIMap();
         if (editor == null) {
             gaze.setAttribute("remark", "Fail | No Editor");
