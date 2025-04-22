@@ -231,6 +231,11 @@ public class EyeTracker implements Disposable {
         int eyeY = (int) ((Double.parseDouble(leftGazePointY) + Double.parseDouble(rightGazePointY)) / 2 * screenHeight);
         return new EyeGazePoint(eyeX, eyeY);
     }
+
+    private boolean inBounds(IDETracker.AOIBounds bounds, EyeGazePoint gazePoint) {
+        return bounds.x <= gazePoint.eyeX && gazePoint.eyeX <= (bounds.x + bounds.width) &&
+                bounds.y <= gazePoint.eyeY && gazePoint.eyeY <= (bounds.y + bounds.height);
+    }
     /**
      * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
      *
@@ -270,8 +275,7 @@ public class EyeTracker implements Disposable {
             // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
             IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
             if (popup != null) {
-                if (popup.x <= gazePoint.eyeX && gazePoint.eyeX <= (popup.x + popup.width) &&
-                        popup.y <= gazePoint.eyeY && gazePoint.eyeY <= (popup.y + popup.height)) {
+                if (inBounds(popup, gazePoint)) {
                     // We are in this AOI.
                     gaze.setAttribute("AOI", "SearchEverywhere");
                     AOIfound = true;
@@ -280,8 +284,7 @@ public class EyeTracker implements Disposable {
             if (!AOIfound) {
                 for (String AOI : AOIMap.keySet()) {
                     IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                    if (bounds.x <= gazePoint.eyeX && gazePoint.eyeX <= (bounds.x + bounds.width) &&
-                            bounds.y <= gazePoint.eyeY && gazePoint.eyeY <= (bounds.y + bounds.height)) {
+                    if (inBounds(bounds, gazePoint)) {
                         // We are in this AOI.
                         gaze.setAttribute("AOI", AOI);
                         AOIfound = true;
@@ -308,8 +311,7 @@ public class EyeTracker implements Disposable {
         // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
         IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
         if (popup != null) {
-            if (popup.x <= gazePoint.eyeX && gazePoint.eyeX <= (popup.x + popup.width) &&
-                    popup.y <= gazePoint.eyeY && gazePoint.eyeY <= (popup.y + popup.height)) {
+            if (inBounds(popup, gazePoint)) {
                 // We are in this AOI.
                 gaze.setAttribute("AOI", "SearchEverywhere");
                 AOIfound = true;
@@ -322,8 +324,7 @@ public class EyeTracker implements Disposable {
             if (!AOIfound) {
                 for (String AOI : AOIMap.keySet()) {
                     IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                    if (bounds.x <= gazePoint.eyeX && gazePoint.eyeX <= (bounds.x + bounds.width) &&
-                            bounds.y <= gazePoint.eyeY && gazePoint.eyeY <= (bounds.y + bounds.height)) {
+                    if (inBounds(bounds, gazePoint)) {
                         // We are in this AOI.
                         gaze.setAttribute("AOI", AOI);
                         AOIfound = true;
