@@ -252,24 +252,8 @@ public class EyeTracker implements Disposable {
             return;
         }
 
-
-
-        // Step 2: FIXME KAIA: determine the AOI
-        // I recommend having that functionality in a separate method and having it simply
-        // return a an indicator of the AOI type.  I think an enum would be better than a String,
-        // and you just convert it to a string for the purpose of the call to SetATtribute.
-        // then, you use the returned AOI type to setATtribute for the gaze and, if the AOI is
-        // an editor, you know that the third step in this function should be to determine AST type.
-
-        // Step 3: FIXME KAIA: if the AOI is an editor, then figure out the AST element.
-        // as above.
-
-        // those steps are likely to benefit from being largely in separate functions, to keep things tidy.
-
-        Map<String, IDETracker.AOIBounds> AOIMap = ideTracker.getAOIMap();
-
         // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
-        IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
+        IDETracker.AOIBounds popup = ideTracker.getAOIMap().get("SearchEverywhere");
         if ((popup != null) && inBounds(popup, gazePoint)) {
             gaze.setAttribute("AOI", "SearchEverywhere");
             return;
@@ -320,15 +304,15 @@ public class EyeTracker implements Disposable {
         // these comments triggered, because there is no editor
         // OR we didn't return on line 319, where we would have if the relative gaze is within the
         // active visible area. In that case, check the AOI map in case they're looking somewhere else.
-        for (String AOI : AOIMap.keySet()) {
-            IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-            if (inBounds(bounds, gazePoint)) {
-                gaze.setAttribute("AOI", AOI);
-                return;
-            }
-        }
-        // if we get here, it's because we didn't return in the loop above, so the gaze is OOB.
-        gaze.setAttribute("AOI", "OOB");
+
+        // CLG can't help herself, demonstrating some fun with Streams...
+        ideTracker.getAOIMap().entrySet().stream()
+                .filter(e -> inBounds(e.getValue(), gazePoint))
+                .findFirst()
+                .ifPresentOrElse(
+                        e -> gaze.setAttribute("AOI", e.getKey()),
+                        () -> gaze.setAttribute("AOI", "OOB")
+                );
     }
 
     /**
