@@ -271,67 +271,57 @@ public class EyeTracker implements Disposable {
         // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
         IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
         if ((popup != null) && inBounds(popup, gazePoint)) {
-                // We are in this AOI.
             gaze.setAttribute("AOI", "SearchEverywhere");
             return;
         }
 
-        if (editor == null) {
-            gaze.setAttribute("remark", "Fail | No Editor");
-            // Find AOI here.
-            boolean AOIfound = false;
-            if (!AOIfound) {
-                for (String AOI : AOIMap.keySet()) {
-                    IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                    if (inBounds(bounds, gazePoint)) {
-                        // We are in this AOI.
-                        gaze.setAttribute("AOI", AOI);
-                        AOIfound = true;
-                    }
-                }
-            }
-            if (!AOIfound) {
-                gaze.setAttribute("AOI", "OOB");
-            }
-            return;
-        }
+        // there are three reasons to check the other AOIs:
+        // 1. editor is null
+        // 2. there's some illegalcomponentstate exception when we try to get its location
+        // 3. the gaze is not in the editor we think it might be in.
+
 
         int editorX, editorY;
         try {
+            Point editorLocation = editor.getContentComponent().getLocationOnScreen();
             editorX = editor.getContentComponent().getLocationOnScreen().x;
             editorY = editor.getContentComponent().getLocationOnScreen().y;
-        } catch (IllegalComponentStateException e) {
+        } catch (IllegalComponentStateException | NullPointerException e) {
             gaze.setAttribute("remark", "Fail | No Editor");
+            for (String AOI : AOIMap.keySet()) {
+                IDETracker.AOIBounds bounds = AOIMap.get(AOI);
+                if (inBounds(bounds, gazePoint)) {
+                    // We are in this AOI.
+                    gaze.setAttribute("AOI", AOI);
+                    return;
+                }
+            }
+            // if we get here, it's because we didn't return in the loop above. So no need
+            // to have an AOIFound booelan
+            gaze.setAttribute("AOI", "OOB");
             return;
         }
         int relativeX = gazePoint.eyeX - editorX;
         int relativeY = gazePoint.eyeY - editorY;
-        boolean AOIfound = false;
 
         if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
                 || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
             // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
             // If not, record as OOB.
-            if (!AOIfound) {
-                for (String AOI : AOIMap.keySet()) {
-                    IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                    if (inBounds(bounds, gazePoint)) {
-                        // We are in this AOI.
-                        gaze.setAttribute("AOI", AOI);
-                        AOIfound = true;
-                    }
+            for (String AOI : AOIMap.keySet()) {
+                IDETracker.AOIBounds bounds = AOIMap.get(AOI);
+                if (inBounds(bounds, gazePoint)) {
+                    gaze.setAttribute("AOI", AOI);
+                    return;
                 }
             }
-            if (!AOIfound) {
-                gaze.setAttribute("AOI", "OOB");
-            }
-        }
-        else {
-            if (!AOIfound) {
-                gaze.setAttribute("AOI", "Editor");
-            }
+            gaze.setAttribute("AOI", "OOB");
+            return;
         }
 
+        // if we got this far, we got past the relative check above; we know this
+        // because in all cases inside that if block, there is a return;
+        gaze.setAttribute("AOI", "Editor");
         Point relativePoint = new Point(relativeX, relativeY);
 
         EventQueue.invokeLater(new Thread(() -> {
