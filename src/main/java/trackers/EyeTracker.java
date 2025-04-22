@@ -200,16 +200,10 @@ public class EyeTracker implements Disposable {
         isTracking = true;
     }
 
-    /**
-     * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
-     *
-     * @param message The raw data.
-     */
-    public void processRawData(String message) {
-        if (!isTracking) return;
-        Element gaze = getRawGazeElement(message);
-        gazes.appendChild(gaze);
+    private record EyeGazePoint(int eyeX, int eyeY) { } ;
 
+
+    private EyeGazePoint createPointFromMessage(String message, Element gaze) {
         String leftInfo = message.split("; ")[1];
         String leftGazePointX = leftInfo.split(", ")[0];
         String leftGazePointY = leftInfo.split(", ")[1];
@@ -219,8 +213,7 @@ public class EyeTracker implements Disposable {
         String rightGazePointY = rightInfo.split(", ")[1];
 
         if (leftGazePointX.equals("nan") || leftGazePointY.equals("nan") || rightGazePointX.equals("nan") || rightGazePointY.equals("nan")) {
-            gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
-            return;
+            return null;
         }
         int eyeX;
         // Kaia 01_28_25: Use the X value from the dominant eye and the average of the Y values.
@@ -233,9 +226,42 @@ public class EyeTracker implements Disposable {
                 break;
             default:
                 eyeX = 0;
-                assert(false);
+                return null;
         }
         int eyeY = (int) ((Double.parseDouble(leftGazePointY) + Double.parseDouble(rightGazePointY)) / 2 * screenHeight);
+        return new EyeGazePoint(eyeX, eyeY);
+    }
+    /**
+     * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
+     *
+     * @param message The raw data.
+     */
+    public void processRawData(String message) {
+        if (!isTracking) return;
+        Element gaze = getRawGazeElement(message);
+        gazes.appendChild(gaze);
+        EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
+        if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
+                                // complain that gazePoint might be null after this point.
+            gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
+            return;
+        }
+
+
+
+        // Step 2: FIXME KAIA: determine the AOI
+        // I recommend having that functionality in a separate method and having it simply
+        // return a an indicator of the AOI type.  I think an enum would be better than a String,
+        // and you just convert it to a string for the purpose of the call to SetATtribute.
+        // then, you use the returned AOI type to setATtribute for the gaze and, if the AOI is
+        // an editor, you know that the third step in this function should be to determine AST type.
+
+        // Step 3: FIXME KAIA: if the AOI is an editor, then figure out the AST element.
+        // as above.
+
+        // those steps are likely to benefit from being largely in separate functions, to keep things tidy.
+
+        
         Map<String, IDETracker.AOIBounds> AOIMap = ideTracker.getAOIMap();
         if (editor == null) {
             gaze.setAttribute("remark", "Fail | No Editor");
@@ -244,8 +270,8 @@ public class EyeTracker implements Disposable {
             // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
             IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
             if (popup != null) {
-                if (popup.x <= eyeX && eyeX <= (popup.x + popup.width) &&
-                        popup.y <= eyeY && eyeY <= (popup.y + popup.height)) {
+                if (popup.x <= gazePoint.eyeX && gazePoint.eyeX <= (popup.x + popup.width) &&
+                        popup.y <= gazePoint.eyeY && gazePoint.eyeY <= (popup.y + popup.height)) {
                     // We are in this AOI.
                     gaze.setAttribute("AOI", "SearchEverywhere");
                     AOIfound = true;
@@ -254,8 +280,8 @@ public class EyeTracker implements Disposable {
             if (!AOIfound) {
                 for (String AOI : AOIMap.keySet()) {
                     IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                    if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
-                            bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
+                    if (bounds.x <= gazePoint.eyeX && gazePoint.eyeX <= (bounds.x + bounds.width) &&
+                            bounds.y <= gazePoint.eyeY && gazePoint.eyeY <= (bounds.y + bounds.height)) {
                         // We are in this AOI.
                         gaze.setAttribute("AOI", AOI);
                         AOIfound = true;
@@ -276,14 +302,14 @@ public class EyeTracker implements Disposable {
             gaze.setAttribute("remark", "Fail | No Editor");
             return;
         }
-        int relativeX = eyeX - editorX;
-        int relativeY = eyeY - editorY;
+        int relativeX = gazePoint.eyeX - editorX;
+        int relativeY = gazePoint.eyeY - editorY;
         boolean AOIfound = false;
         // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
         IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
         if (popup != null) {
-            if (popup.x <= eyeX && eyeX <= (popup.x + popup.width) &&
-                    popup.y <= eyeY && eyeY <= (popup.y + popup.height)) {
+            if (popup.x <= gazePoint.eyeX && gazePoint.eyeX <= (popup.x + popup.width) &&
+                    popup.y <= gazePoint.eyeY && gazePoint.eyeY <= (popup.y + popup.height)) {
                 // We are in this AOI.
                 gaze.setAttribute("AOI", "SearchEverywhere");
                 AOIfound = true;
@@ -296,8 +322,8 @@ public class EyeTracker implements Disposable {
             if (!AOIfound) {
                 for (String AOI : AOIMap.keySet()) {
                     IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                    if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
-                            bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
+                    if (bounds.x <= gazePoint.eyeX && gazePoint.eyeX <= (bounds.x + bounds.width) &&
+                            bounds.y <= gazePoint.eyeY && gazePoint.eyeY <= (bounds.y + bounds.height)) {
                         // We are in this AOI.
                         gaze.setAttribute("AOI", AOI);
                         AOIfound = true;
@@ -323,8 +349,8 @@ public class EyeTracker implements Disposable {
                 int offset = editor.logicalPositionToOffset(logicalPosition);
                 PsiElement psiElement = psiFile.findElementAt(offset);
                 Element location = eyeTracking.createElement("location");
-                location.setAttribute("x", String.valueOf(eyeX));
-                location.setAttribute("y", String.valueOf(eyeY));
+                location.setAttribute("x", String.valueOf(gazePoint.eyeX));
+                location.setAttribute("y", String.valueOf(gazePoint.eyeY));
                 location.setAttribute("line", String.valueOf(logicalPosition.line));
                 location.setAttribute("column", String.valueOf(logicalPosition.column));
                 location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
