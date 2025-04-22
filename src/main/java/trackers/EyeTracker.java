@@ -284,66 +284,64 @@ public class EyeTracker implements Disposable {
         int editorX, editorY;
         try {
             Point editorLocation = editor.getContentComponent().getLocationOnScreen();
-            editorX = editor.getContentComponent().getLocationOnScreen().x;
-            editorY = editor.getContentComponent().getLocationOnScreen().y;
+            editorX = editorLocation.x;
+            editorY = editorLocation.y;
+            int relativeX = gazePoint.eyeX - editorX;
+            int relativeY = gazePoint.eyeY - editorY;
+            if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
+                    || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
+                // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
+                // If not, record as OOB.
+                for (String AOI : AOIMap.keySet()) {
+                    IDETracker.AOIBounds bounds = AOIMap.get(AOI);
+                    if (inBounds(bounds, gazePoint)) {
+                        gaze.setAttribute("AOI", AOI);
+                        return;
+                    }
+                }
+                gaze.setAttribute("AOI", "OOB");
+                return;
+            }
+            // if we got this far, we got past the relative check above; we know this
+            // because in all cases inside that if block, there is a return;
+            // that means we can assume we're in an editor and can behave accordingly
+            gaze.setAttribute("AOI", "Editor");
+            Point relativePoint = new Point(relativeX, relativeY);
+
+            EventQueue.invokeLater(new Thread(() -> {
+                PsiFile psiFile = psiDocumentManager.getPsiFile(editor.getDocument());
+                LogicalPosition logicalPosition = editor.xyToLogicalPosition(relativePoint);
+                if (psiFile != null) {
+                    int offset = editor.logicalPositionToOffset(logicalPosition);
+                    PsiElement psiElement = psiFile.findElementAt(offset);
+                    Element location = eyeTracking.createElement("location");
+                    location.setAttribute("x", String.valueOf(gazePoint.eyeX));
+                    location.setAttribute("y", String.valueOf(gazePoint.eyeY));
+                    location.setAttribute("line", String.valueOf(logicalPosition.line));
+                    location.setAttribute("column", String.valueOf(logicalPosition.column));
+                    location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
+                    gaze.appendChild(location);
+                    Element aSTStructure = getASTStructureElement(psiElement);
+                    gaze.appendChild(aSTStructure);
+                    lastElement = psiElement;
+//                System.out.println(gaze.getAttribute("timestamp") + " " + System.currentTimeMillis());
+                    handleElement(gaze);
+                }
+            }));
         } catch (IllegalComponentStateException | NullPointerException e) {
             gaze.setAttribute("remark", "Fail | No Editor");
             for (String AOI : AOIMap.keySet()) {
                 IDETracker.AOIBounds bounds = AOIMap.get(AOI);
                 if (inBounds(bounds, gazePoint)) {
-                    // We are in this AOI.
                     gaze.setAttribute("AOI", AOI);
                     return;
                 }
             }
             // if we get here, it's because we didn't return in the loop above. So no need
-            // to have an AOIFound booelan
+            // to have an AOIFound boolean
             gaze.setAttribute("AOI", "OOB");
-            return;
-        }
-        int relativeX = gazePoint.eyeX - editorX;
-        int relativeY = gazePoint.eyeY - editorY;
-
-        if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
-                || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
-            // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
-            // If not, record as OOB.
-            for (String AOI : AOIMap.keySet()) {
-                IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                if (inBounds(bounds, gazePoint)) {
-                    gaze.setAttribute("AOI", AOI);
-                    return;
-                }
-            }
-            gaze.setAttribute("AOI", "OOB");
-            return;
         }
 
-        // if we got this far, we got past the relative check above; we know this
-        // because in all cases inside that if block, there is a return;
-        gaze.setAttribute("AOI", "Editor");
-        Point relativePoint = new Point(relativeX, relativeY);
-
-        EventQueue.invokeLater(new Thread(() -> {
-            PsiFile psiFile = psiDocumentManager.getPsiFile(editor.getDocument());
-            LogicalPosition logicalPosition = editor.xyToLogicalPosition(relativePoint);
-            if (psiFile != null) {
-                int offset = editor.logicalPositionToOffset(logicalPosition);
-                PsiElement psiElement = psiFile.findElementAt(offset);
-                Element location = eyeTracking.createElement("location");
-                location.setAttribute("x", String.valueOf(gazePoint.eyeX));
-                location.setAttribute("y", String.valueOf(gazePoint.eyeY));
-                location.setAttribute("line", String.valueOf(logicalPosition.line));
-                location.setAttribute("column", String.valueOf(logicalPosition.column));
-                location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
-                gaze.appendChild(location);
-                Element aSTStructure = getASTStructureElement(psiElement);
-                gaze.appendChild(aSTStructure);
-                lastElement = psiElement;
-//                System.out.println(gaze.getAttribute("timestamp") + " " + System.currentTimeMillis());
-                handleElement(gaze);
-            }
-        }));
     }
 
     /**
