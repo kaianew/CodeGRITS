@@ -266,21 +266,20 @@ public class EyeTracker implements Disposable {
 
         // those steps are likely to benefit from being largely in separate functions, to keep things tidy.
 
-        
         Map<String, IDETracker.AOIBounds> AOIMap = ideTracker.getAOIMap();
+
+        // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
+        IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
+        if ((popup != null) && inBounds(popup, gazePoint)) {
+                // We are in this AOI.
+            gaze.setAttribute("AOI", "SearchEverywhere");
+            return;
+        }
+
         if (editor == null) {
             gaze.setAttribute("remark", "Fail | No Editor");
             // Find AOI here.
             boolean AOIfound = false;
-            // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
-            IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
-            if (popup != null) {
-                if (inBounds(popup, gazePoint)) {
-                    // We are in this AOI.
-                    gaze.setAttribute("AOI", "SearchEverywhere");
-                    AOIfound = true;
-                }
-            }
             if (!AOIfound) {
                 for (String AOI : AOIMap.keySet()) {
                     IDETracker.AOIBounds bounds = AOIMap.get(AOI);
@@ -308,15 +307,7 @@ public class EyeTracker implements Disposable {
         int relativeX = gazePoint.eyeX - editorX;
         int relativeY = gazePoint.eyeY - editorY;
         boolean AOIfound = false;
-        // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
-        IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
-        if (popup != null) {
-            if (inBounds(popup, gazePoint)) {
-                // We are in this AOI.
-                gaze.setAttribute("AOI", "SearchEverywhere");
-                AOIfound = true;
-            }
-        }
+
         if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
                 || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
             // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
