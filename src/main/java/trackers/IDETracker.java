@@ -32,6 +32,7 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
 import com.intellij.util.ui.update.Activatable;
 import com.intellij.util.ui.update.UiNotifyConnector;
+import entity.AOIBounds;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -97,19 +98,7 @@ public final class IDETracker implements Disposable {
      */
     private Consumer<Element> ideTrackerDataHandler;
     // Class for the Map below.
-    public class AOIBounds {
-        public int x;
-        public int y;
-        public int width;
-        public int height;
-        public String id;
-        public AOIBounds(int x, int y, int width, int height, String id) {
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.height = height;
-        }
-    }
+
     // Variable for keeping track of visible AOIs and their bounds throughout recording.
     // The ToolWindowListener edits this, and the getAOIMap function allows the EyeTracker class to access it.
     private Map<String, AOIBounds> AOIMap;
