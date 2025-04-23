@@ -1,5 +1,10 @@
 package trackers;
+import com.intellij.codeInsight.daemon.impl.EditorTracker;
+import com.intellij.codeInsight.daemon.impl.EditorTrackerListener;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.editor.EditorFactory;
+import com.intellij.openapi.editor.event.EditorFactoryEvent;
+import com.intellij.openapi.editor.event.EditorFactoryListener;
 import entity.EyeEnum;
 
 import com.intellij.openapi.Disposable;
@@ -25,10 +30,13 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 import java.awt.*;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -93,10 +101,52 @@ public class EyeTracker implements Disposable {
         screenWidth = size.getWidth();
         screenHeight = size.getHeight();
 
+        EditorFactory editorFactory = EditorFactory.getInstance();
+        editorFactory.addEditorFactoryListener(new EditorFactoryListener() {
+                                                   @Override
+                                                   public void editorCreated(@NotNull EditorFactoryEvent editorFactoryEvent) {
+                                                       // Get editor and attach a component listener
+                                                       // remember this might not be on screen yet bc intellij is a bitch
+                                                       Editor editor = editorFactoryEvent.getEditor();
+                                                       // Print editor location and bounds
+                                                       LOG.info("Editor created");
+                                                       Rectangle bounds = editor.getContentComponent().getBounds();
+                                                       Point point = editor.getContentComponent().getLocationOnScreen();
+                                                       LOG.info("The editor is here -- x: " + point.getX() + " y: " + point.getY());
+                                                       LOG.info("The editor is of width " + bounds.getWidth() + " and of height " + bounds.getHeight());
+                                                       editor.getContentComponent().addComponentListener(new ComponentListener() {
+                                                           @Override
+                                                           public void componentResized(ComponentEvent e) {
+                                                               LOG.info("Resized editor");
+                                                           }
+
+                                                           @Override
+                                                           public void componentMoved(ComponentEvent e) {
+
+                                                           }
+
+                                                           @Override
+                                                           public void componentShown(ComponentEvent e) {
+                                                               // Nothing, this is not triggered
+                                                           }
+
+                                                           @Override
+                                                           public void componentHidden(ComponentEvent e) {
+                                                                LOG.info("We closed the editor");
+                                                           }
+                                                       });
+                                                   }
+
+            @Override
+            public void editorReleased(@NotNull EditorFactoryEvent event) {
+                LOG.info("editor disapppeaaaaared.");
+            }
+        });
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 // FIXME: if you want to add split screen ability, here would be the place
+                LOG.info("file was opened.");
                 editor = source.getSelectedTextEditor();
                 if (editor != null) {
                     editor.getScrollingModel().addVisibleAreaListener(visibleAreaListener);
