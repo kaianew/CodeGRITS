@@ -30,6 +30,8 @@ import java.util.*;
 
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
+import com.intellij.util.ui.update.Activatable;
+import com.intellij.util.ui.update.UiNotifyConnector;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -412,6 +414,58 @@ public final class IDETracker implements Disposable {
         root.appendChild(visibleAreas);
         root.appendChild(toolWindows);
         root.appendChild(popups);
+        EditorFactory editorFactory = EditorFactory.getInstance();
+        editorFactory.addEditorFactoryListener(new EditorFactoryListener() {
+            @Override
+            public void editorCreated(@NotNull EditorFactoryEvent editorFactoryEvent) {
+                Editor editor = editorFactoryEvent.getEditor();
+                LOG.info("Editor created");
+
+                // Create UiNotifyConnector to detect when editor is actually shown
+                new UiNotifyConnector(editor.getContentComponent(), new Activatable() {
+                    @Override
+                    public void showNotify() {
+                        try {
+                            LOG.info("trying without eye tracking.");
+                            Rectangle bounds = editor.getContentComponent().getBounds();
+                            Point point = editor.getContentComponent().getLocationOnScreen();
+                            LOG.info("Editor now visible -- x: " + point.getX() + " y: " + point.getY());
+                            LOG.info("Editor bounds -- width: " + bounds.getWidth() + " height: " + bounds.getHeight());
+
+                            // Now it's safe to add component listener since the editor is actually visible
+                            editor.getContentComponent().addComponentListener(new ComponentListener() {
+                                @Override
+                                public void componentResized(ComponentEvent e) {
+                                    LOG.info("Resized editor");
+                                }
+
+                                @Override
+                                public void componentMoved(ComponentEvent e) {
+                                    LOG.info("Editor moved");
+                                }
+
+                                @Override
+                                public void componentShown(ComponentEvent e) {
+                                    LOG.info("Editor shown");
+                                }
+
+                                @Override
+                                public void componentHidden(ComponentEvent e) {
+                                    LOG.info("Editor hidden");
+                                }
+                            });
+                        } catch (IllegalComponentStateException e) {
+                            LOG.warn("Failed to get editor location", e);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void editorReleased(@NotNull EditorFactoryEvent event) {
+                LOG.info("editor disapppeaaaaared.");
+            }
+        });
 
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(
                 AnActionListener.TOPIC, new AnActionListener() {
