@@ -200,16 +200,10 @@ public class EyeTracker implements Disposable {
         isTracking = true;
     }
 
-    /**
-     * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
-     *
-     * @param message The raw data.
-     */
-    public void processRawData(String message) {
-        if (!isTracking) return;
-        Element gaze = getRawGazeElement(message);
-        gazes.appendChild(gaze);
+    private record EyeGazePoint(int eyeX, int eyeY) { } ;
 
+
+    private EyeGazePoint createPointFromMessage(String message, Element gaze) {
         String leftInfo = message.split("; ")[1];
         String leftGazePointX = leftInfo.split(", ")[0];
         String leftGazePointY = leftInfo.split(", ")[1];
@@ -219,8 +213,7 @@ public class EyeTracker implements Disposable {
         String rightGazePointY = rightInfo.split(", ")[1];
 
         if (leftGazePointX.equals("nan") || leftGazePointY.equals("nan") || rightGazePointX.equals("nan") || rightGazePointY.equals("nan")) {
-            gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
-            return;
+            return null;
         }
         int eyeX;
         // Kaia 01_28_25: Use the X value from the dominant eye and the average of the Y values.
@@ -233,109 +226,93 @@ public class EyeTracker implements Disposable {
                 break;
             default:
                 eyeX = 0;
-                assert(false);
+                return null;
         }
         int eyeY = (int) ((Double.parseDouble(leftGazePointY) + Double.parseDouble(rightGazePointY)) / 2 * screenHeight);
-        Map<String, IDETracker.AOIBounds> AOIMap = ideTracker.getAOIMap();
-        if (editor == null) {
-            gaze.setAttribute("remark", "Fail | No Editor");
-            // Find AOI here.
-            boolean AOIfound = false;
-            // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
-            IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
-            if (popup != null) {
-                if (popup.x <= eyeX && eyeX <= (popup.x + popup.width) &&
-                        popup.y <= eyeY && eyeY <= (popup.y + popup.height)) {
-                    // We are in this AOI.
-                    gaze.setAttribute("AOI", "SearchEverywhere");
-                    AOIfound = true;
-                }
-            }
-            if (!AOIfound) {
-                for (String AOI : AOIMap.keySet()) {
-                    IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                    if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
-                            bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
-                        // We are in this AOI.
-                        gaze.setAttribute("AOI", AOI);
-                        AOIfound = true;
-                    }
-                }
-            }
-            if (!AOIfound) {
-                gaze.setAttribute("AOI", "OOB");
-            }
+        return new EyeGazePoint(eyeX, eyeY);
+    }
+
+    private boolean inBounds(IDETracker.AOIBounds bounds, EyeGazePoint gazePoint) {
+        return bounds.x <= gazePoint.eyeX && gazePoint.eyeX <= (bounds.x + bounds.width) &&
+                bounds.y <= gazePoint.eyeY && gazePoint.eyeY <= (bounds.y + bounds.height);
+    }
+    /**
+     * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
+     *
+     * @param message The raw data.
+     */
+    public void processRawData(String message) {
+        if (!isTracking) return;
+        Element gaze = getRawGazeElement(message);
+        gazes.appendChild(gaze);
+        EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
+        if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
+                                // complain that gazePoint might be null after this point.
+            gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
             return;
         }
 
-        int editorX, editorY;
-        try {
-            editorX = editor.getContentComponent().getLocationOnScreen().x;
-            editorY = editor.getContentComponent().getLocationOnScreen().y;
-        } catch (IllegalComponentStateException e) {
-            gaze.setAttribute("remark", "Fail | No Editor");
-            return;
-        }
-        int relativeX = eyeX - editorX;
-        int relativeY = eyeY - editorY;
-        boolean AOIfound = false;
         // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
-        IDETracker.AOIBounds popup = AOIMap.get("SearchEverywhere");
-        if (popup != null) {
-            if (popup.x <= eyeX && eyeX <= (popup.x + popup.width) &&
-                    popup.y <= eyeY && eyeY <= (popup.y + popup.height)) {
-                // We are in this AOI.
-                gaze.setAttribute("AOI", "SearchEverywhere");
-                AOIfound = true;
-            }
+        IDETracker.AOIBounds popup = ideTracker.getAOIMap().get("SearchEverywhere");
+        if ((popup != null) && inBounds(popup, gazePoint)) {
+            gaze.setAttribute("AOI", "SearchEverywhere");
+            return;
         }
-        if ((relativeX - visibleArea.x) < 0 || (relativeY - visibleArea.y) < 0
-                || (relativeX - visibleArea.x) > visibleArea.width || (relativeY - visibleArea.y) > visibleArea.height) {
-            // In this case, the AOI is not the editor. We check to see if it is any other available AOI.
-            // If not, record as OOB.
-            if (!AOIfound) {
-                for (String AOI : AOIMap.keySet()) {
-                    IDETracker.AOIBounds bounds = AOIMap.get(AOI);
-                    if (bounds.x <= eyeX && eyeX <= (bounds.x + bounds.width) &&
-                            bounds.y <= eyeY && eyeY <= (bounds.y + bounds.height)) {
-                        // We are in this AOI.
-                        gaze.setAttribute("AOI", AOI);
-                        AOIfound = true;
-                    }
-                }
-            }
-            if (!AOIfound) {
-                gaze.setAttribute("AOI", "OOB");
-            }
-        }
-        else {
-            if (!AOIfound) {
+
+        try {
+            Point editorLocation = editor.getContentComponent().getLocationOnScreen();
+            int relativeX = gazePoint.eyeX - editorLocation.x;
+            int relativeY = gazePoint.eyeY - editorLocation.y;
+            if ((relativeX - visibleArea.x) >= 0 && (relativeY - visibleArea.y) >= 0
+                    && (relativeX - visibleArea.x) <= visibleArea.width && (relativeY - visibleArea.y) <= visibleArea.height) {
+                // FIXME KAIA: claire pleads that you check this; I inverted the if condition
+                // to make it so that this SHOULD be true if the AOI IS the editor
+                // (previously it was a check if the AOI was NOT the editor).
+                // I'd be happier if there were a way to use the "inBounds" helper function I made, above
+                // but the types don't match up and I'm a little bit too lazy to figure out how to make them match up.
                 gaze.setAttribute("AOI", "Editor");
-            }
-        }
+                Point relativePoint = new Point(relativeX, relativeY);
 
-        Point relativePoint = new Point(relativeX, relativeY);
-
-        EventQueue.invokeLater(new Thread(() -> {
-            PsiFile psiFile = psiDocumentManager.getPsiFile(editor.getDocument());
-            LogicalPosition logicalPosition = editor.xyToLogicalPosition(relativePoint);
-            if (psiFile != null) {
-                int offset = editor.logicalPositionToOffset(logicalPosition);
-                PsiElement psiElement = psiFile.findElementAt(offset);
-                Element location = eyeTracking.createElement("location");
-                location.setAttribute("x", String.valueOf(eyeX));
-                location.setAttribute("y", String.valueOf(eyeY));
-                location.setAttribute("line", String.valueOf(logicalPosition.line));
-                location.setAttribute("column", String.valueOf(logicalPosition.column));
-                location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
-                gaze.appendChild(location);
-                Element aSTStructure = getASTStructureElement(psiElement);
-                gaze.appendChild(aSTStructure);
-                lastElement = psiElement;
+                EventQueue.invokeLater(new Thread(() -> {
+                    PsiFile psiFile = psiDocumentManager.getPsiFile(editor.getDocument());
+                    LogicalPosition logicalPosition = editor.xyToLogicalPosition(relativePoint);
+                    if (psiFile != null) {
+                        int offset = editor.logicalPositionToOffset(logicalPosition);
+                        PsiElement psiElement = psiFile.findElementAt(offset);
+                        Element location = eyeTracking.createElement("location");
+                        location.setAttribute("x", String.valueOf(gazePoint.eyeX));
+                        location.setAttribute("y", String.valueOf(gazePoint.eyeY));
+                        location.setAttribute("line", String.valueOf(logicalPosition.line));
+                        location.setAttribute("column", String.valueOf(logicalPosition.column));
+                        location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
+                        gaze.appendChild(location);
+                        Element aSTStructure = getASTStructureElement(psiElement);
+                        gaze.appendChild(aSTStructure);
+                        lastElement = psiElement;
 //                System.out.println(gaze.getAttribute("timestamp") + " " + System.currentTimeMillis());
-                handleElement(gaze);
+                        handleElement(gaze);
+                    }
+                }));
+                return;
             }
-        }));
+        } catch (IllegalComponentStateException | NullPointerException e) {
+            gaze.setAttribute("remark", "Fail | No Editor");
+        }
+        // the use of exception handling as control flow is kind of a bad practice
+        // but CLG is struggling to come up with a better way to do it.
+        // anyhoozles.  Execution would get here for one of two reasons: either the catch block immediately above
+        // these comments triggered, because there is no editor
+        // OR we didn't return on line 319, where we would have if the relative gaze is within the
+        // active visible area. In that case, check the AOI map in case they're looking somewhere else.
+
+        // CLG can't help herself, demonstrating some fun with Streams...
+        ideTracker.getAOIMap().entrySet().stream()
+                .filter(e -> inBounds(e.getValue(), gazePoint))
+                .findFirst()
+                .ifPresentOrElse(
+                        e -> gaze.setAttribute("AOI", e.getKey()),
+                        () -> gaze.setAttribute("AOI", "OOB")
+                );
     }
 
     /**
