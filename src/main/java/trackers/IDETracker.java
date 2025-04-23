@@ -79,6 +79,8 @@ public final class IDETracker implements Disposable {
     Element toolWindows = iDETracking.createElement("tool_windows");
     // Added to track bounds of popups opening, resizing, and closing.
     Element popups = iDETracking.createElement("popups");
+    // Added to track bounds of editors opening, resizing, and closing.
+    Element editors = iDETracking.createElement("editors");
     String projectPath = "";
     String dataOutputPath = "";
     String lastSelectionInfo = "";
@@ -401,6 +403,13 @@ public final class IDETracker implements Disposable {
                         Dimension dim = e.getComponent().getSize();
                         AOIBounds bounds = new AOIBounds(point.x, point.y, dim.width, dim.height, key);
                         AOIMap.put(key, bounds);
+
+                        // Add XML resizing event
+                        Element editorElement = iDETracking.createElement("editor");
+                        editorElement.setAttribute("AOI", key);
+                        editorElement.setAttribute("event", "EditorResized");
+                        editorElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                        registerBoundsToEditor(point, dim, editorElement);
                     }
                 });
             }
@@ -422,11 +431,22 @@ public final class IDETracker implements Disposable {
         };
     }
 
+    // FIXME CLG: this is a good place to refactor. within this file, I now have three different functions which save elements to the XML file
+    // which take different args. but all ultimately do something very similar
+    private void registerBoundsToEditor(Point point, Dimension bounds, Element editorElement) {
+        editorElement.setAttribute("x", String.valueOf(point.x));
+        editorElement.setAttribute("y", String.valueOf(point.y));
+        editorElement.setAttribute("width", String.valueOf(bounds.width));
+        editorElement.setAttribute("height", String.valueOf(bounds.height));
+        editors.appendChild(editorElement);
+    }
+
     /**
      * This constructor initializes the IDE tracker.
      */
     IDETracker() throws ParserConfigurationException {
         AOIMap = new HashMap<>();
+        EditorMap = new HashMap<>();
         iDETracking.appendChild(root);
         root.appendChild(environment);
 
@@ -451,27 +471,32 @@ public final class IDETracker implements Disposable {
         root.appendChild(visibleAreas);
         root.appendChild(toolWindows);
         root.appendChild(popups);
+        root.appendChild(editors);
         EditorFactory editorFactory = EditorFactory.getInstance();
         editorFactory.addEditorFactoryListener(new EditorFactoryListener() {
             @Override
             public void editorCreated(@NotNull EditorFactoryEvent editorFactoryEvent) {
                 Editor editor = editorFactoryEvent.getEditor();
-                LOG.info("Editor created");
+                LOG.info("EDITOR CREATED KAIA PART 2");
 
                 // Create UiNotifyConnector to detect when editor is actually shown
                 new UiNotifyConnector(editor.getContentComponent(), new Activatable() {
                     @Override
                     public void showNotify() {
+                        LOG.info("EDITOR ON SCREEN KAIA");
                         Dimension bounds = editor.getContentComponent().getSize();
                         Point point = editor.getContentComponent().getLocationOnScreen();
-                        LOG.info("Editor now visible -- x: " + point.x + " y: " + point.y);
-                        LOG.info("Editor bounds -- width: " + bounds.width + " height: " + bounds.height);
 
-                        // Add to EditorMap and AOIMap
+                        // Add to EditorMap, AOIMap, and XML file
                         String key = "Editor" + editorCtr;
                         EditorMap.put(key, editor);
                         AOIBounds AOIBoundsVar = new AOIBounds(point.x, point.y, bounds.width, bounds.height, key);
                         AOIMap.put(key, AOIBoundsVar);
+                        Element editorElement = iDETracking.createElement("editor");
+                        editorElement.setAttribute("AOI", key);
+                        editorElement.setAttribute("event", "EditorCreated");
+                        editorElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                        registerBoundsToEditor(point, bounds, editorElement);
                         editorCtr += 1;
                         // Now it's safe to add component listener since the editor is actually visible
                         ComponentListener editorListener = componentListenerCreator(key);
@@ -494,6 +519,11 @@ public final class IDETracker implements Disposable {
                 }
                 EditorMap.remove(key);
                 AOIMap.remove(key);
+                Element editorElement = iDETracking.createElement("editor");
+                editorElement.setAttribute("AOI", key);
+                editorElement.setAttribute("event", "EditorReleased");
+                editorElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                editors.appendChild(editorElement);
             }
         });
 
