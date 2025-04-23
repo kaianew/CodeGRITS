@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NotNull;
 import trackers.EyeTracker;
 import trackers.IDETracker;
 import trackers.ScreenRecorder;
+import trackers.TestTracker;
 import utils.AvailabilityChecker;
 
 import javax.swing.*;
@@ -95,6 +96,7 @@ public class StartStopTrackingAction extends AnAction {
                     screenRecorder.startRecording();
                 }
 
+                TestTracker test = TestTracker.getInstance();
                 iDETracker = IDETracker.getInstance();
                 iDETracker.setProjectPath(projectPath);
                 iDETracker.setDataOutputPath(realDataOutputPath);
