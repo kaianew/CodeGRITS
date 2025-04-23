@@ -5,6 +5,8 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.editor.event.EditorFactoryEvent;
 import com.intellij.openapi.editor.event.EditorFactoryListener;
+import com.intellij.util.ui.update.Activatable;
+import com.intellij.util.ui.update.UiNotifyConnector;
 import entity.EyeEnum;
 
 import com.intellij.openapi.Disposable;
@@ -103,39 +105,50 @@ public class EyeTracker implements Disposable {
 
         EditorFactory editorFactory = EditorFactory.getInstance();
         editorFactory.addEditorFactoryListener(new EditorFactoryListener() {
-                                                   @Override
-                                                   public void editorCreated(@NotNull EditorFactoryEvent editorFactoryEvent) {
-                                                       // Get editor and attach a component listener
-                                                       // remember this might not be on screen yet bc intellij is a bitch
-                                                       Editor editor = editorFactoryEvent.getEditor();
-                                                       // Print editor location and bounds
-                                                       LOG.info("Editor created");
-                                                       Rectangle bounds = editor.getContentComponent().getBounds();
-                                                       Point point = editor.getContentComponent().getLocationOnScreen();
-                                                       LOG.info("The editor is here -- x: " + point.getX() + " y: " + point.getY());
-                                                       LOG.info("The editor is of width " + bounds.getWidth() + " and of height " + bounds.getHeight());
-                                                       editor.getContentComponent().addComponentListener(new ComponentListener() {
-                                                           @Override
-                                                           public void componentResized(ComponentEvent e) {
-                                                               LOG.info("Resized editor");
-                                                           }
+            @Override
+            public void editorCreated(@NotNull EditorFactoryEvent editorFactoryEvent) {
+                Editor editor = editorFactoryEvent.getEditor();
+                LOG.info("Editor created");
 
-                                                           @Override
-                                                           public void componentMoved(ComponentEvent e) {
+                // Create UiNotifyConnector to detect when editor is actually shown
+                new UiNotifyConnector(editor.getContentComponent(), new Activatable() {
+                    @Override
+                    public void showNotify() {
+                        try {
+                            LOG.info("trying without eye tracking.");
+                            Rectangle bounds = editor.getContentComponent().getBounds();
+                            Point point = editor.getContentComponent().getLocationOnScreen();
+                            LOG.info("Editor now visible -- x: " + point.getX() + " y: " + point.getY());
+                            LOG.info("Editor bounds -- width: " + bounds.getWidth() + " height: " + bounds.getHeight());
 
-                                                           }
+                            // Now it's safe to add component listener since the editor is actually visible
+                            editor.getContentComponent().addComponentListener(new ComponentListener() {
+                                @Override
+                                public void componentResized(ComponentEvent e) {
+                                    LOG.info("Resized editor");
+                                }
 
-                                                           @Override
-                                                           public void componentShown(ComponentEvent e) {
-                                                               // Nothing, this is not triggered
-                                                           }
+                                @Override
+                                public void componentMoved(ComponentEvent e) {
+                                    LOG.info("Editor moved");
+                                }
 
-                                                           @Override
-                                                           public void componentHidden(ComponentEvent e) {
-                                                                LOG.info("We closed the editor");
-                                                           }
-                                                       });
-                                                   }
+                                @Override
+                                public void componentShown(ComponentEvent e) {
+                                    LOG.info("Editor shown");
+                                }
+
+                                @Override
+                                public void componentHidden(ComponentEvent e) {
+                                    LOG.info("Editor hidden");
+                                }
+                            });
+                        } catch (IllegalComponentStateException e) {
+                            LOG.warn("Failed to get editor location", e);
+                        }
+                    }
+                });
+            }
 
             @Override
             public void editorReleased(@NotNull EditorFactoryEvent event) {
