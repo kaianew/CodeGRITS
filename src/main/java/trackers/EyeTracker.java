@@ -265,7 +265,7 @@ public class EyeTracker implements Disposable {
         }
 
         // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
-        IDETracker.AOIBounds popup = ideTracker.getAOIMap().get("SearchEverywhere");
+        AOIBounds popup = ideTracker.getAOIMap().get("SearchEverywhere");
         if ((popup != null) && inBounds(popup, gazePoint)) {
             gaze.setAttribute("AOI", "SearchEverywhere");
             return;
