@@ -111,6 +111,8 @@ public final class IDETracker implements Disposable {
     // Variable for keeping track of visible AOIs and their bounds throughout recording.
     // The ToolWindowListener edits this, and the getAOIMap function allows the EyeTracker class to access it.
     private Map<String, AOIBounds> AOIMap;
+    private Map<String, Editor> EditorMap;
+    private int editorCtr = 0;
 
     /**
      * This variable is the document listener for the IDE tracker. When the document is changed, if the {@code EditorKind} is {@code CONSOLE}, the console output is archived. Otherwise, the {@code changedFilepath} and {@code changedFileText} are updated.
@@ -384,6 +386,41 @@ public final class IDETracker implements Disposable {
             }
         }
     };
+    private ComponentListener componentListenerCreator(String key) {
+        return new ComponentListener() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                LOG.info("Editor resized.");
+                // Need to update AOIBounds in AOIMap
+                // BUT maybe component not done resizing.
+                new UiNotifyConnector(e.getComponent(), new Activatable() {
+                    @Override
+                    public void showNotify() {
+                        // NOW it's really resized.
+                        Point point = e.getComponent().getLocationOnScreen();
+                        Dimension dim = e.getComponent().getSize();
+                        AOIBounds bounds = new AOIBounds(point.x, point.y, dim.width, dim.height, key);
+                        AOIMap.put(key, bounds);
+                    }
+                });
+            }
+
+            @Override
+            public void componentMoved(ComponentEvent e) {
+                LOG.info("Editor moved");
+            }
+
+            @Override
+            public void componentShown(ComponentEvent e) {
+                LOG.info("Editor shown");
+            }
+
+            @Override
+            public void componentHidden(ComponentEvent e) {
+                LOG.info("Editor hidden");
+            }
+        };
+    }
 
     /**
      * This constructor initializes the IDE tracker.
@@ -425,45 +462,38 @@ public final class IDETracker implements Disposable {
                 new UiNotifyConnector(editor.getContentComponent(), new Activatable() {
                     @Override
                     public void showNotify() {
-                        try {
-                            LOG.info("trying without eye tracking.");
-                            Rectangle bounds = editor.getContentComponent().getBounds();
-                            Point point = editor.getContentComponent().getLocationOnScreen();
-                            LOG.info("Editor now visible -- x: " + point.getX() + " y: " + point.getY());
-                            LOG.info("Editor bounds -- width: " + bounds.getWidth() + " height: " + bounds.getHeight());
+                        Dimension bounds = editor.getContentComponent().getSize();
+                        Point point = editor.getContentComponent().getLocationOnScreen();
+                        LOG.info("Editor now visible -- x: " + point.x + " y: " + point.y);
+                        LOG.info("Editor bounds -- width: " + bounds.width + " height: " + bounds.height);
 
-                            // Now it's safe to add component listener since the editor is actually visible
-                            editor.getContentComponent().addComponentListener(new ComponentListener() {
-                                @Override
-                                public void componentResized(ComponentEvent e) {
-                                    LOG.info("Resized editor");
-                                }
-
-                                @Override
-                                public void componentMoved(ComponentEvent e) {
-                                    LOG.info("Editor moved");
-                                }
-
-                                @Override
-                                public void componentShown(ComponentEvent e) {
-                                    LOG.info("Editor shown");
-                                }
-
-                                @Override
-                                public void componentHidden(ComponentEvent e) {
-                                    LOG.info("Editor hidden");
-                                }
-                            });
-                        } catch (IllegalComponentStateException e) {
-                            LOG.warn("Failed to get editor location", e);
-                        }
+                        // Add to EditorMap and AOIMap
+                        String key = "Editor" + editorCtr;
+                        EditorMap.put(key, editor);
+                        AOIBounds AOIBoundsVar = new AOIBounds(point.x, point.y, bounds.width, bounds.height, key);
+                        AOIMap.put(key, AOIBoundsVar);
+                        editorCtr += 1;
+                        // Now it's safe to add component listener since the editor is actually visible
+                        ComponentListener editorListener = componentListenerCreator(key);
+                        editor.getContentComponent().addComponentListener(editorListener);
                     }
                 });
             }
 
             @Override
             public void editorReleased(@NotNull EditorFactoryEvent event) {
-                LOG.info("editor disapppeaaaaared.");
+                // Need to 1. remove from EditorMap and 2. remove from AOIMap
+                // We don't know the key. For now, go through EditorMap values and find the one that matches...
+                Editor editor = event.getEditor();
+                String key = "";
+                for (Map.Entry<String, Editor> entry : EditorMap.entrySet()) {
+                    if (editor.equals(entry.getValue())) {
+                        key = entry.getKey();
+                        break;
+                    }
+                }
+                EditorMap.remove(key);
+                AOIMap.remove(key);
             }
         });
 
@@ -482,7 +512,6 @@ public final class IDETracker implements Disposable {
                             actions.appendChild(actionElement);
                             handleElement(actionElement);
 
-                            LOG.info("we're handling an action, Kaia");
                             // Handle the SearchEverywhere popup
                             String actionId = ActionManager.getInstance().getId(action);
                             if ("SearchEverywhere".equals(actionId)) {
@@ -675,6 +704,7 @@ public final class IDETracker implements Disposable {
         for (VirtualFile file : fileEditorManager.getOpenFiles()) {
             archiveFile(file.getPath(), String.valueOf(System.currentTimeMillis()), "fileOpened", null);
         }
+        // FIXME KLN: 1. You need to record all current editors to the list here, or somewhere like here, just like the toolwindows. 2. also attach listener
     }
 
     /**
