@@ -7,6 +7,7 @@ import com.intellij.openapi.editor.event.EditorFactoryEvent;
 import com.intellij.openapi.editor.event.EditorFactoryListener;
 import com.intellij.util.ui.update.Activatable;
 import com.intellij.util.ui.update.UiNotifyConnector;
+import entity.AOIBounds;
 import entity.EyeEnum;
 
 import com.intellij.openapi.Disposable;
@@ -243,9 +244,9 @@ public class EyeTracker implements Disposable {
         return new EyeGazePoint(eyeX, eyeY);
     }
 
-    private boolean inBounds(IDETracker.AOIBounds bounds, EyeGazePoint gazePoint) {
-        return bounds.x <= gazePoint.eyeX && gazePoint.eyeX <= (bounds.x + bounds.width) &&
-                bounds.y <= gazePoint.eyeY && gazePoint.eyeY <= (bounds.y + bounds.height);
+    private boolean inBounds(AOIBounds bounds, EyeGazePoint gazePoint) {
+        return bounds.x() <= gazePoint.eyeX && gazePoint.eyeX <= (bounds.x() + bounds.width()) &&
+                bounds.y() <= gazePoint.eyeY && gazePoint.eyeY <= (bounds.y() + bounds.height());
     }
     /**
      * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
