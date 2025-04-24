@@ -37,8 +37,12 @@ public final class TestTracker {
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 debounceFileEvent(file.getPath(), "opened", () -> {
                     for (FileEditor editor : source.getEditors(file)) {
+                        // When file is opened, attach listener to the editor that it came from
+                        // Are we attaching multiple listeners? let's see in the method below
+                        // Verdict: you can be
                         attachResizeMoveListener(editor, file.getName());
                     }
+                    // Also schedule a check
                     scheduleWindowDiffCheck(source.getProject());
                 });
             }
@@ -75,6 +79,7 @@ public final class TestTracker {
     }
 
     private void attachResizeMoveListener(FileEditor editor, String key) {
+        // This might trigger more than once for the same editor.
         if (editor instanceof TextEditor) {
             JComponent component = ((TextEditor) editor).getComponent();
             component.addComponentListener(new ComponentAdapter() {
@@ -116,6 +121,7 @@ public final class TestTracker {
         pendingDiffCheck = new TimerTask() {
             @Override
             public void run() {
+                // Invoke later and timer task
                 SwingUtilities.invokeLater(() -> updateKnownEditorWindows(project));
             }
         };

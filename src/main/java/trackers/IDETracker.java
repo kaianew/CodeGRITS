@@ -572,7 +572,6 @@ public final class IDETracker implements Disposable {
                                         try {
                                             popup = (JBPopup) balloonField.get(manager);
                                         } catch (IllegalAccessException e) {
-                                            LOG.info("Illegal access of myBalloon.");
                                             throw new RuntimeException(e);
                                         }
                                         String popupId = "SearchEverywhere";
