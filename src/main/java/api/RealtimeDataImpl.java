@@ -3,6 +3,7 @@ package api;
 import com.intellij.openapi.project.Project;
 import trackers.EyeTracker;
 import trackers.IDETracker;
+import trackers.TrackerInfo.IDETrackerInfo;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -39,7 +40,7 @@ public class RealtimeDataImpl {
     }
 
     public void getRawIDETrackerData(Project project) throws ParserConfigurationException {
-        ideTracker = IDETracker.getInstance();
+        ideTracker = IDETracker.getInstance(new IDETrackerInfo());
         ideTracker.startTracking(project);
     }
 
@@ -59,7 +60,7 @@ public class RealtimeDataImpl {
         if (ideTrackerDataHandler == null) {
             return;
         }
-        ideTracker = IDETracker.getInstance();
+        ideTracker = IDETracker.getInstance(new IDETrackerInfo());
         ideTracker.setIsRealTimeDataTransmitting(true);
         ideTracker.startTracking(project);
         Thread ideTrackerThread = new Thread(() -> {
