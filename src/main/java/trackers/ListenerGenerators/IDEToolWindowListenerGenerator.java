@@ -1,9 +1,11 @@
-package entity;
+package trackers.ListenerGenerators;
 
 import com.intellij.openapi.editor.event.VisibleAreaListener;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
+import entity.IDETrackerInfo;
+import entity.XMLDocumentHandler;
 import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Element;
 import trackers.IDETracker;

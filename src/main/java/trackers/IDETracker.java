@@ -40,6 +40,8 @@ import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.actionSystem.ex.AnActionListener;
 import com.intellij.openapi.application.ApplicationManager;
 import org.jetbrains.annotations.NotNull;
+import trackers.ListenerGenerators.IDESimpleListenerGenerators;
+import trackers.ListenerGenerators.IDEToolWindowListenerGenerator;
 import utils.RelativePathGetter;
 import utils.XMLWriter;
 
