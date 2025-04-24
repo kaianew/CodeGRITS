@@ -13,6 +13,7 @@ import trackers.IDETracker;
 import utils.RelativePathGetter;
 
 import java.awt.event.MouseEvent;
+import java.util.Map;
 
 public class IDESimpleListenerGenerators {
 
@@ -25,16 +26,14 @@ public class IDESimpleListenerGenerators {
      * @return The mouse element.
      */
     private static Element getMouseElement(IDETrackerInfo info, XMLDocumentHandler xmldoc, EditorMouseEvent e, String id) {
-        Element mouseElement = xmldoc.createElementAtNamedParent("mouse", "mouses");
-        mouseElement.setAttribute("id", id);
-        mouseElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
         VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
-        mouseElement.setAttribute("path", virtualFile != null ?
-                RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
         MouseEvent mouseEvent = e.getMouseEvent();
-        mouseElement.setAttribute("x", String.valueOf(mouseEvent.getXOnScreen()));
-        mouseElement.setAttribute("y", String.valueOf(mouseEvent.getYOnScreen()));
-        return mouseElement;
+        return xmldoc.createElementTimestamp("mouse", "mouses",
+                Map.of( "event", id,
+                        "path", virtualFile != null ?
+                                RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : "",
+                        "x", String.valueOf(mouseEvent.getXOnScreen()),
+                        "y", String.valueOf(mouseEvent.getYOnScreen())));
     }
 
     public static EditorMouseListener getMouseListener(IDETrackerInfo info, XMLDocumentHandler xmldoc) {
@@ -109,15 +108,15 @@ public class IDESimpleListenerGenerators {
                 if (!info.isTracking()) return;
                 if (e.getEditor().getEditorKind() == EditorKind.MAIN_EDITOR) {
                     VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
-                    Element visibleAreaElement = xmldoc.createElementAtNamedParent("visible_area", "visible_areas");
-                    visibleAreaElement.setAttribute("id", "visibleAreaChanged");
-                    visibleAreaElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
-                    visibleAreaElement.setAttribute("path", virtualFile != null ?
-                            RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
-                    visibleAreaElement.setAttribute("x", String.valueOf(e.getEditor().getScrollingModel().getHorizontalScrollOffset()));
-                    visibleAreaElement.setAttribute("y", String.valueOf(e.getEditor().getScrollingModel().getVerticalScrollOffset()));
-                    visibleAreaElement.setAttribute("width", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().width));
-                    visibleAreaElement.setAttribute("height", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().height));
+                    Element visibleAreaElement =
+                    xmldoc.createElementTimestamp("visible_area", "visible_areas",
+                            Map.of( "event", "visibleAreaChanged",
+                                    "path", virtualFile != null ?
+                                            RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : "",
+                                    "x", String.valueOf(e.getEditor().getScrollingModel().getHorizontalScrollOffset()),
+                                    "y", String.valueOf(e.getEditor().getScrollingModel().getVerticalScrollOffset()),
+                                    "width", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().width),
+                                    "height", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().height)));
                     info.handleElement(visibleAreaElement);
                 }
             };
@@ -130,14 +129,14 @@ public class IDESimpleListenerGenerators {
             @Override
             public void caretPositionChanged(@NotNull CaretEvent e) {
                 if (!info.isTracking()) return;
-                Element caretElement = xmldoc.createElementAtNamedParent("caret", "carets");
-                caretElement.setAttribute("id", "caretPositionChanged");
-                caretElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
                 VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
-                caretElement.setAttribute("path", virtualFile != null ?
-                        RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
-                caretElement.setAttribute("line", String.valueOf(e.getNewPosition().line));
-                caretElement.setAttribute("column", String.valueOf(e.getNewPosition().column));
+
+                Element caretElement = xmldoc.createElementTimestamp("caret", "carets",
+                        Map.of( "event", "caretPositionChanged",
+                                "path", virtualFile != null ?
+                        RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : "",
+                                "line", String.valueOf(e.getNewPosition().line),
+                                "column", String.valueOf(e.getNewPosition().column)));
                 info.handleElement(caretElement);
             }
         };
@@ -147,20 +146,17 @@ public class IDESimpleListenerGenerators {
             @Override
             public void selectionChanged(@NotNull SelectionEvent e) {
                 if (!info.isTracking()) return;
-
-                Element selectionElement = xmldoc.createElementAtNamedParent("selection", "selections");
-                selectionElement.setAttribute("id", "selectionChanged");
-                selectionElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
                 VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
-                selectionElement.setAttribute("path", virtualFile != null ?
-                        RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
                 LogicalPosition startLogicalPos = e.getEditor().offsetToLogicalPosition(e.getNewRange().getStartOffset());
                 LogicalPosition endLogicalPos = e.getEditor().offsetToLogicalPosition(e.getNewRange().getEndOffset());
-                selectionElement.setAttribute("start_position", startLogicalPos.line + ":" +
-                        startLogicalPos.column);
-                selectionElement.setAttribute("end_position", endLogicalPos.line + ":" +
-                        endLogicalPos.column);
-                selectionElement.setAttribute("selected_text", e.getEditor().getSelectionModel().getSelectedText());
+                String selectedText = e.getEditor().getSelectionModel().getSelectedText();
+                Element selectionElement = xmldoc.createElementTimestamp("selection", "selections",
+                        Map.of("event", "selectionChanged",
+                                "path", virtualFile != null ?
+                                        RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : "",
+                                "start_position", startLogicalPos.line + ":" + startLogicalPos.column,
+                                "end_position", endLogicalPos.line + ":" + endLogicalPos.column,
+                            "selected_text", selectedText != null ? selectedText : ""));
 
                 String currentSelectionInfo = selectionElement.getAttribute("path") + "-" +
                         selectionElement.getAttribute("start_position") + "-" +

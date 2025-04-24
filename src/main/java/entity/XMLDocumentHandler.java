@@ -31,14 +31,23 @@ public class XMLDocumentHandler {
         parentMap.put(elementName,element);
     }
 
-    public Element createElementAtNamedParent(String elementName, String parentName) {
+    private Element createElementAtNamedParent(String elementName, String parentName) {
         Element element = iDETracking.createElement(elementName);
         Element parent = parentMap.get(parentName);
         parent.appendChild(element);
         return element;
     }
-    public Element getElement(String elementName) {
+    public Element getParentElement(String elementName) {
         return parentMap.get(elementName);
+    }
+
+
+    public Element createElementTimestamp(String elementName, String parentName, Map<String,String> attributes) {
+        Element element = createElementAtNamedParent(elementName, parentName);
+        element.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+        // FIXME: consider iterating and only setting attribute if not "" or null or something
+        attributes.forEach(element::setAttribute);
+        return element;
     }
 
     /**

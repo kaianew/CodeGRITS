@@ -11,7 +11,6 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.editor.*;
 import com.intellij.openapi.editor.event.*;
-import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
@@ -32,11 +31,9 @@ import entity.AOIBounds;
 import entity.IDESimpleListenerGenerators;
 import entity.IDETrackerInfo;
 import entity.XMLDocumentHandler;
-import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Element;
 
 import java.awt.*;
-import java.io.*;
 import java.util.List;
 import java.util.Timer;
 import java.util.function.Consumer;
@@ -154,26 +151,26 @@ public final class IDETracker implements Disposable {
             // Only create an element if visibility was changed or window was movedorresized
                 if (isCurrentlyVisible != wasVisible ||
                         changeType == ToolWindowManagerListener.ToolWindowManagerEventType.MovedOrResized) {
-                    Element toolWindowElement = xmldoc.createElementAtNamedParent("tool_window", "tool_windows");
-                    toolWindowElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
-                    toolWindowElement.setAttribute("AOI", windowId);
-                    if (changeType == ToolWindowManagerEventType.HideToolWindow) {
-                        toolWindowElement.setAttribute("event", "WindowHidden");
-                        // Remove AOI from map (no longer visible).
-                        AOIMap.remove(toolWindow.getId());
+                    String aoiEvent = "";
+                    boolean registerBounds = false; // hoisted on my own petard
+                    switch(changeType) {
+                        case HideToolWindow: aoiEvent = "WindowHidden";
+                            AOIMap.remove(toolWindow.getId());
+                            break;
+                        case  MovedOrResized: aoiEvent = "WindowChanged";
+                            registerBounds = true;
+                            break;
+                        case ActivateToolWindow: aoiEvent = "WindowShown";
+                            registerBounds = true;
+                            break;
                     }
-                    else if (changeType == ToolWindowManagerEventType.MovedOrResized) {
-                        toolWindowElement.setAttribute("event", "WindowChanged");
-                        Component component = toolWindow.getContentManager().getComponent();
-
-                        registerBoundsToElement(component, toolWindowElement, toolWindow.getId());
-                    }
-                    else if (changeType == ToolWindowManagerEventType.ActivateToolWindow) {
-                        // Tool window was just shown.
-                        toolWindowElement.setAttribute("event", "WindowShown");
-                        Component component = toolWindow.getContentManager().getComponent();
-                        registerBoundsToElement(component, toolWindowElement, toolWindow.getId());
-
+                    Element toolWindowElement =
+                            xmldoc.createElementTimestamp("tool_window",
+                                    "tool_windows",
+                                    Map.of("aoi", windowId,
+                                            "event", aoiEvent));
+                    if(registerBounds) {
+                        registerBoundsToElement(toolWindow.getContentManager().getComponent(), toolWindowElement, toolWindow.getId());
                     }
                 }
                 previousVisibilityState.put(windowId, isCurrentlyVisible);
@@ -182,10 +179,11 @@ public final class IDETracker implements Disposable {
 
 
     private void recordPopupBounds(SearchEverywhereUI ui, String popupId, String eventType) {
-        Element popupElement = xmldoc.createElementAtNamedParent("popup", "popups");
-        popupElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
-        popupElement.setAttribute("event", eventType);
-        popupElement.setAttribute("AOI", popupId);
+        Element popupElement =
+                xmldoc.createElementTimestamp("popup", "popups",
+                        Map.of("aoi", popupId,
+                                "event", eventType));
+
         Point loc = ui.getLocationOnScreen();
         // Supposed to use the underlying viewType variable to get this info
         Dimension size = ui.getPreferredSize();
@@ -209,11 +207,9 @@ public final class IDETracker implements Disposable {
             if (!SEOpen) return; // if the search everywhere popup isn't open, don't record closing it
             String popupId = "SearchEverywhere";
             AOIMap.remove(popupId);
-
-            Element popupElement = xmldoc.createElementAtNamedParent("popup", "popups");
-            popupElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
-            popupElement.setAttribute("event", "PopupClosed");
-            popupElement.setAttribute("AOI", popupId);
+            xmldoc.createElementTimestamp("popup", "popups",
+                    Map.of("aoi", popupId,
+                            "event", "PopupClosed"));
             SEOpen = false;
         }
     };
@@ -258,10 +254,10 @@ public final class IDETracker implements Disposable {
                         AOIMap.put(key, bounds);
 
                         // Add XML resizing event
-                        Element editorElement = xmldoc.createElementAtNamedParent("editor", "editors");
-                        editorElement.setAttribute("AOI", key);
-                        editorElement.setAttribute("event", "EditorResized");
-                        editorElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                        Element editorElement = xmldoc.createElementTimestamp("editor", "editors",
+                                Map.of("aoi", key,
+                                        "event", "EditorResized"));
+
                         registerBoundsToEditor(point, dim, editorElement);
                     }
                 });
@@ -314,10 +310,11 @@ public final class IDETracker implements Disposable {
                         EditorMap.put(key, editor);
                         AOIBounds AOIBoundsVar = new AOIBounds(point.x, point.y, bounds.width, bounds.height, key);
                         AOIMap.put(key, AOIBoundsVar);
-                        Element editorElement = xmldoc.createElementAtNamedParent("editor", "editors");
-                        editorElement.setAttribute("AOI", key);
-                        editorElement.setAttribute("event", "EditorCreated");
-                        editorElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+
+                        Element editorElement =
+                            xmldoc.createElementTimestamp("editor", "editors",
+                                Map.of("aoi", key,
+                                        "event", "EditorCreated"));
                         registerBoundsToEditor(point, bounds, editorElement);
                         editorCtr += 1;
                         // Now it's safe to add component listener since the editor is actually visible
@@ -341,10 +338,9 @@ public final class IDETracker implements Disposable {
                 }
                 EditorMap.remove(key);
                 AOIMap.remove(key);
-                Element editorElement = xmldoc.createElementAtNamedParent("editor", "editors");
-                editorElement.setAttribute("AOI", key);
-                editorElement.setAttribute("event", "EditorReleased");
-                editorElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                xmldoc.createElementTimestamp("editor", "editors",
+                        Map.of("aoi", key,
+                                "event", "EditorReleased"));
             }
         });
 
@@ -354,12 +350,14 @@ public final class IDETracker implements Disposable {
                     @Override
                     public void beforeActionPerformed(@NotNull AnAction action, @NotNull AnActionEvent event) {
                         if (info.isTracking()) {
-                            Element actionElement = xmldoc.createElementAtNamedParent("action", "actions");
-                            actionElement.setAttribute("id", ActionManager.getInstance().getId(action));
-                            actionElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
                             VirtualFile virtualFile = event.getData(PlatformDataKeys.VIRTUAL_FILE);
-                            actionElement.setAttribute("path", virtualFile != null ?
-                                    RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
+
+                            String eventName = ActionManager.getInstance().getId(action);
+                            Element actionElement =
+                                xmldoc.createElementTimestamp("action", "actions",
+                                        Map.of( "event", eventName != null? eventName : "" ,
+                                                "path", virtualFile != null ?
+                                                            RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : ""));
                             info.handleElement(actionElement);
 
                             // Handle the SearchEverywhere popup
@@ -422,13 +420,13 @@ public final class IDETracker implements Disposable {
                     @Override
                     public void beforeEditorTyping(char c, @NotNull DataContext dataContext) {
                         if (info.isTracking()) {
-                            Element typingElement = xmldoc.createElementAtNamedParent("typing", "typings");
-                            typingElement.setAttribute("character", String.valueOf(c));
-                            typingElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
                             VirtualFile virtualFile = dataContext.getData(PlatformDataKeys.VIRTUAL_FILE);
-                            typingElement.setAttribute("path", virtualFile != null ?
-                                    RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
 
+                            Element typingElement = xmldoc.createElementTimestamp("typing", "typings",
+                                    Map.of( "character", String.valueOf(c),
+                                            "path", virtualFile != null ?
+                                                    RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null)
+                                    );
                             Editor editor = dataContext.getData(CommonDataKeys.EDITOR);
                             if (editor != null) {
                                 Caret primaryCaret = editor.getCaretModel().getPrimaryCaret();
@@ -444,41 +442,30 @@ public final class IDETracker implements Disposable {
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(
                 FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
 
-                    @Override
-                    public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
+                    private void handleFile(@NotNull FileEditorManager source, @NotNull VirtualFile file, String event) {
                         if (info.isTracking()) {
-                            Element fileElement = xmldoc.createElementAtNamedParent("file", "files");
-                            fileElement.setAttribute("id", "fileOpened");
-                            String timestamp = String.valueOf(System.currentTimeMillis());
-                            fileElement.setAttribute("timestamp", timestamp);
-                            fileElement.setAttribute("path",
-                                    RelativePathGetter.getRelativePath(file.getPath(), info.projectPath));
-                            xmldoc.archiveFile(info.dataOutputPath, info.projectPath, file.getPath(), timestamp, "fileOpened", null);
+                            Element fileElement = xmldoc.createElementTimestamp("file", "files",
+                                    Map.of( "event", event,
+                                            "path", RelativePathGetter.getRelativePath(file.getPath(), info.projectPath)));
+                            xmldoc.archiveFile(info.dataOutputPath, info.projectPath, file.getPath(), String.valueOf(System.currentTimeMillis()), event, null);
                             info.handleElement(fileElement);
                         }
+                    }
+                    @Override
+                    public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
+                        handleFile(source, file, "fileOpened");
                     }
 
                     @Override
                     public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                        if (info.isTracking()) {
-                            Element fileElement = xmldoc.createElementAtNamedParent("file", "files");
-                            fileElement.setAttribute("id", "fileClosed");
-                            String timestamp = String.valueOf(System.currentTimeMillis());
-                            fileElement.setAttribute("timestamp", timestamp);
-                            fileElement.setAttribute("path",
-                                    RelativePathGetter.getRelativePath(file.getPath(), info.projectPath));
-                            xmldoc.archiveFile(info.dataOutputPath, info.projectPath, file.getPath(), timestamp, "fileClosed", null);
-                            info.handleElement(fileElement);
-                        }
+                        handleFile(source, file, "fileClosed");
                     }
 
                     @Override
                     public void selectionChanged(@NotNull FileEditorManagerEvent event) {
                         if (info.isTracking()) {
-                            Element fileElement = xmldoc.createElementAtNamedParent("file", "files");
+                            Element fileElement = xmldoc.createElementTimestamp("file", "files", Map.of("event", "selectionChanged"));
 
-                            fileElement.setAttribute("id", "selectionChanged");
-                            fileElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
                             if (event.getOldFile() != null) {
                                 fileElement.setAttribute("old_path",
                                         RelativePathGetter.getRelativePath(event.getOldFile().getPath(), info.projectPath));
@@ -505,7 +492,7 @@ public final class IDETracker implements Disposable {
         for(String element : ELEMENTS) {
             xmldoc.initializeElementAtRoot(element);
         }
-        Element environment = xmldoc.getElement("environment");
+        Element environment = xmldoc.getParentElement("environment");
 
         Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
         environment.setAttribute("screen_size", "(" + size.width + "," + size.height + ")");
@@ -538,7 +525,7 @@ public final class IDETracker implements Disposable {
      */
     public void startTracking(Project project) {
         info.startTracking();
-        Element environment = xmldoc.getElement("environment");
+        Element environment = xmldoc.getParentElement("environment");
         environment.setAttribute("project_path", info.projectPath);
         environment.setAttribute("project_name", info.projectPath.substring(
                 info.projectPath.lastIndexOf('/') + 1));
@@ -559,10 +546,9 @@ public final class IDETracker implements Disposable {
         for (String id : toolWindowManager.getToolWindowIds()) {
             ToolWindow toolWindow = toolWindowManager.getToolWindow(id);
             if (toolWindow != null && toolWindow.isVisible()) {
-                Element initialToolWindowElement = xmldoc.createElementAtNamedParent("tool_window", "tool_windows");
-                initialToolWindowElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
-                initialToolWindowElement.setAttribute("AOI", toolWindow.getId());
-                initialToolWindowElement.setAttribute("event", "InitialWindow");
+                Element initialToolWindowElement = xmldoc.createElementTimestamp("tool_window", "tool_windows",
+                        Map.of( "aoi", toolWindow.getId(),
+                                "event", "InitialWindow"));
                 Component component = toolWindow.getContentManager().getComponent();
                 registerBoundsToElement(component, initialToolWindowElement, toolWindow.getId());
             }
@@ -617,8 +603,6 @@ public final class IDETracker implements Disposable {
     @Override
     public void dispose() {
     }
-
-
 
     // This method passes the AOIBounds Map so the EyeTracker can determine which AOI gazes are in.
     public Map<String, AOIBounds> getAOIMap() {
