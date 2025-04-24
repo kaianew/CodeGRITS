@@ -98,9 +98,9 @@ public class ConfigDialog extends DialogWrapper {
         }
         if (getPythonInterpreter().equals(selectPythonInterpreterPlaceHolder) || getPythonInterpreter().equals("python") || getPythonInterpreter().equals("python3") || getPythonInterpreter().equals("") || getPythonInterpreter().endsWith("python") || getPythonInterpreter().endsWith("python3") || getPythonInterpreter().endsWith("python.exe") || getPythonInterpreter().endsWith("python3.exe")) {
 
-            pythonEnvironment = AvailabilityChecker.checkPythonEnvironment(getPythonInterpreter());
+            pythonEnvironment = true; //AvailabilityChecker.checkPythonEnvironment(getPythonInterpreter());
             if (pythonEnvironment && checkBoxes.get(1).isSelected()) {
-                eyeTracker = AvailabilityChecker.checkEyeTracker(getPythonInterpreter());
+                eyeTracker = false; ///AvailabilityChecker.checkEyeTracker(getPythonInterpreter());
                 if (eyeTracker) { //eye tracker found, add mouse and eye tracker name, add eye tracker freq
                     String trackerName = AvailabilityChecker.getEyeTrackerName(getPythonInterpreter());
                     if (trackerName != null && !trackerName.equals("Not Found")) {
@@ -313,17 +313,13 @@ public class ConfigDialog extends DialogWrapper {
                 new DocumentAdapter() {
                     @Override
                     protected void textChanged(@NotNull DocumentEvent e) {
-                        try {
-                            //TODO: what if using mac/unix/anaconda
-                            if (getPythonInterpreter().equals("python") || getPythonInterpreter().equals("python3") || getPythonInterpreter().equals("") || getPythonInterpreter().endsWith("python") || getPythonInterpreter().endsWith("python3") || getPythonInterpreter().endsWith("python.exe") || getPythonInterpreter().endsWith("python3.exe")) {
-                                pythonEnvironment = AvailabilityChecker.checkPythonEnvironment(getPythonInterpreter());
-                            } else {
-                                pythonEnvironment = false;
-                            }
-                            ComponentValidator.getInstance(pythonInterpreterTextField.getTextField()).ifPresent(ComponentValidator::revalidate);
-                        } catch (IOException | InterruptedException ex) {
-                            throw new RuntimeException(ex);
+                        //TODO: what if using mac/unix/anaconda
+                        if (getPythonInterpreter().equals("python") || getPythonInterpreter().equals("python3") || getPythonInterpreter().equals("") || getPythonInterpreter().endsWith("python") || getPythonInterpreter().endsWith("python3") || getPythonInterpreter().endsWith("python.exe") || getPythonInterpreter().endsWith("python3.exe")) {
+                            pythonEnvironment = false; //AvailabilityChecker.checkPythonEnvironment(getPythonInterpreter());
+                        } else {
+                            pythonEnvironment = false;
                         }
+                        ComponentValidator.getInstance(pythonInterpreterTextField.getTextField()).ifPresent(ComponentValidator::revalidate);
                     }
                 }
         );

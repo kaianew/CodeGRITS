@@ -107,8 +107,6 @@ public class EyeTracker implements Disposable {
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                // FIXME: if you want to add split screen ability, here would be the place
-                LOG.info("file was opened.");
                 editor = source.getSelectedTextEditor();
                 if (editor != null) {
                     editor.getScrollingModel().addVisibleAreaListener(visibleAreaListener);

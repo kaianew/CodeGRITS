@@ -2,6 +2,9 @@ package trackers;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.event.VisibleAreaEvent;
+import com.intellij.openapi.editor.event.VisibleAreaListener;
 import com.intellij.openapi.fileEditor.*;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
@@ -81,16 +84,14 @@ public final class TestTracker {
     private void attachResizeMoveListener(FileEditor editor, String key) {
         // This might trigger more than once for the same editor.
         if (editor instanceof TextEditor) {
-            JComponent component = ((TextEditor) editor).getComponent();
-            component.addComponentListener(new ComponentAdapter() {
+            ((TextEditor) editor).getEditor().getScrollingModel().addVisibleAreaListener(new VisibleAreaListener() {
                 @Override
-                public void componentResized(ComponentEvent e) {
-                    debounceResizeEvent(key, "resized");
-                }
-
-                @Override
-                public void componentMoved(ComponentEvent e) {
-                    debounceResizeEvent(key, "moved");
+                public void visibleAreaChanged(@NotNull VisibleAreaEvent visibleAreaEvent) {
+                    // This will trigger SO. MUCH.
+                    // but. hypothetically, it will trigger on resize and scroll
+                    // we want to 1. log when the visible code changes to XML and 2. log when the visible area is actually resized.
+                    // TODO: resize triggers when you select a new file.
+                    System.out.println("resize or scroll triggered: " + visibleAreaEvent);
                 }
             });
         }
@@ -153,7 +154,10 @@ public final class TestTracker {
         }
 
         if (!changed) {
-            System.out.println("Editor windows unchanged.");
+            System.out.println("Editor windows unchanged." + currentWindows);
+            for (EditorWindow window : currentWindows) {
+                System.out.println("Window: " + window + " Selected file: " + window.getSelectedFile());
+            }
         }
     }
 
