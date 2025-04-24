@@ -50,14 +50,6 @@ public class IDETrackerInfo {
         }
     }
 
-    /**
-     * This method sets the {@code isRealTimeDataTransmitting} variable.
-     *
-     * @param isRealTimeDataTransmitting Indicates whether the data is transmitted in real time.
-     */
-    public void setIsRealTimeDataTransmitting(boolean isRealTimeDataTransmitting) {
-        IDETrackerInfo.isRealTimeDataTransmitting = isRealTimeDataTransmitting;
-    }
 
     public void setProjectPath(String projectPath) {
         this.projectPath = projectPath;

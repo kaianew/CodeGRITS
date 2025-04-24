@@ -124,53 +124,18 @@ public final class IDETracker implements Disposable {
      * This variable is the mouse listener for the IDE tracker.
      * When the mouse is pressed, clicked, or released, the mouse event is tracked.
      */
-    EditorMouseListener editorMouseListener = new EditorMouseListener() {
-        @Override
-        public void mousePressed(@NotNull EditorMouseEvent e) {
-            if (!info.isTracking()) return; // FIXME: instead, make sure this is just deregistered when tracking stops, and vice versa
-            getMouseElement(e, "mousePressed");
-        }
-
-        @Override
-        public void mouseClicked(@NotNull EditorMouseEvent e) {
-            if (!info.isTracking()) return;
-            Element mouseElement = getMouseElement(e, "mouseClicked");
-            info.handleElement(mouseElement);
-        }
-
-        @Override
-        public void mouseReleased(@NotNull EditorMouseEvent e) {
-            if (!info.isTracking()) return;
-            Element mouseElement = getMouseElement(e, "mouseReleased");
-            info.handleElement(mouseElement);
-        }
-    };
+    EditorMouseListener editorMouseListener = IDEListenerGenerators.getMouseListener(info, xmldoc);
 
     /**
      * This variable is the mouse motion listener for the IDE tracker.
      * When the mouse is moved or dragged, the mouse event is tracked.
      */
-    EditorMouseMotionListener editorMouseMotionListener = new EditorMouseMotionListener() {
-        @Override
-        public void mouseMoved(@NotNull EditorMouseEvent e) {
-            if (!info.isTracking()) return;
-            Element mouseElement = getMouseElement(e, "mouseMoved");
-            info.handleElement(mouseElement);
-        }
-
-        @Override
-        public void mouseDragged(@NotNull EditorMouseEvent e) {
-            if (!info.isTracking()) return;
-            Element mouseElement = getMouseElement(e, "mouseDragged");
-            info.handleElement(mouseElement);
-        }
-    };
-
+    EditorMouseMotionListener editorMouseMotionListener = IDEListenerGenerators.getMouseMotionListener(info, xmldoc);
     /**
      * This variable is the caret listener for the IDE tracker.
      * When the caret position is changed, the caret event is tracked.
      */
-    CaretListener caretListener =IDEListenerGenerators.getCaretListener(info, xmldoc);
+    CaretListener caretListener = IDEListenerGenerators.getCaretListener(info, xmldoc);
 
     /**
      * This variable is the selection listener for the IDE tracker.
@@ -736,26 +701,6 @@ public final class IDETracker implements Disposable {
         }
     }
 
-    /**
-     * This method returns the mouse XML element.
-     *
-     * @param e  The editor mouse event.
-     * @param id The id of the mouse event.
-     * @return The mouse element.
-     */
-    public Element getMouseElement(EditorMouseEvent e, String id) {
-        Element mouseElement = xmldoc.createElementAtNamedParent("mouse", "mouses");
-        mouseElement.setAttribute("id", id);
-        mouseElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
-        VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
-        mouseElement.setAttribute("path", virtualFile != null ?
-                RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
-        MouseEvent mouseEvent = e.getMouseEvent();
-        mouseElement.setAttribute("x", String.valueOf(mouseEvent.getXOnScreen()));
-        mouseElement.setAttribute("y", String.valueOf(mouseEvent.getYOnScreen()));
-        return mouseElement;
-    }
-
     // This method passes the AOIBounds Map so the EyeTracker can determine which AOI gazes are in.
     public Map<String, AOIBounds> getAOIMap() {
         return this.AOIMap;
@@ -772,5 +717,9 @@ public final class IDETracker implements Disposable {
 
     public void setInfo(IDETrackerInfo info) {
         this.info = info;
+    }
+
+    public void setIsRealTimeDataTransmitting(boolean b) {
+        IDETrackerInfo.isRealTimeDataTransmitting = b;
     }
 }
