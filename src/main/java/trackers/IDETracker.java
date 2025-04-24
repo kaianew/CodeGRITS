@@ -124,19 +124,18 @@ public final class IDETracker implements Disposable {
      */
     VisibleAreaListener visibleAreaListener = IDESimpleListenerGenerators.getVisibleAreaListener(info, xmldoc);
 
-    // Saves new bounds to AOI map and records to XML.
-    private void registerBoundsToElement(ToolWindow toolWindow, Element toolWindowElement) {
-        Component component = toolWindow.getContentManager().getComponent();
+    private void registerBoundsToElement(Component component, Element componentElement, String componentID) {
         Point location = component.getLocationOnScreen();
         Dimension bounds = component.getSize();
-        toolWindowElement.setAttribute("x", String.valueOf(location.x));
-        toolWindowElement.setAttribute("y", String.valueOf(location.y));
-        toolWindowElement.setAttribute("width", String.valueOf(bounds.width));
-        toolWindowElement.setAttribute("height", String.valueOf(bounds.height));
+        componentElement.setAttribute("x", String.valueOf(location.x));
+        componentElement.setAttribute("y", String.valueOf(location.y));
+        componentElement.setAttribute("width", String.valueOf(bounds.width));
+        componentElement.setAttribute("height", String.valueOf(bounds.height));
 
         // add to map
-        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, toolWindow.getId());
-        AOIMap.put(toolWindow.getId(), loc);
+        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, componentID);
+        AOIMap.put(componentID, loc);
+
     }
 
     // Listener for when the state of tool windows changes to record AOI bounds dynamically.
@@ -165,17 +164,22 @@ public final class IDETracker implements Disposable {
                     }
                     else if (changeType == ToolWindowManagerEventType.MovedOrResized) {
                         toolWindowElement.setAttribute("event", "WindowChanged");
-                        registerBoundsToElement(toolWindow, toolWindowElement);
+                        Component component = toolWindow.getContentManager().getComponent();
+
+                        registerBoundsToElement(component, toolWindowElement, toolWindow.getId());
                     }
                     else if (changeType == ToolWindowManagerEventType.ActivateToolWindow) {
                         // Tool window was just shown.
                         toolWindowElement.setAttribute("event", "WindowShown");
-                        registerBoundsToElement(toolWindow, toolWindowElement);
+                        Component component = toolWindow.getContentManager().getComponent();
+                        registerBoundsToElement(component, toolWindowElement, toolWindow.getId());
+
                     }
                 }
                 previousVisibilityState.put(windowId, isCurrentlyVisible);
             }
     };
+
 
     private void recordPopupBounds(SearchEverywhereUI ui, String popupId, String eventType) {
         Element popupElement = xmldoc.createElementAtNamedParent("popup", "popups");
@@ -503,7 +507,6 @@ public final class IDETracker implements Disposable {
         }
         Element environment = xmldoc.getElement("environment");
 
-
         Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
         environment.setAttribute("screen_size", "(" + size.width + "," + size.height + ")");
         GraphicsConfiguration config = GraphicsEnvironment.getLocalGraphicsEnvironment().
@@ -560,8 +563,8 @@ public final class IDETracker implements Disposable {
                 initialToolWindowElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
                 initialToolWindowElement.setAttribute("AOI", toolWindow.getId());
                 initialToolWindowElement.setAttribute("event", "InitialWindow");
-
-                registerBoundsToElement(toolWindow, initialToolWindowElement);
+                Component component = toolWindow.getContentManager().getComponent();
+                registerBoundsToElement(component, initialToolWindowElement, toolWindow.getId());
             }
         }
         // Add listener for tool windows
