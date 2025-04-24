@@ -181,8 +181,6 @@ public final class IDETracker implements Disposable {
         };
     }
 
-    // FIXME CLG: this is a good place to refactor. within this file, I now have three different functions which save elements to the XML file
-    // which take different args. but all ultimately do something very similar
     // CLG isn't convinced this should stay here
     public static Map<String,String> addBoundsAttributes(Point point, Dimension bounds, Map<String,String> attrs) {
         Map<String, String> union = new HashMap<>();
@@ -220,7 +218,7 @@ public final class IDETracker implements Disposable {
                                 IDETracker.addBoundsAttributes(point, bounds, Map.of("aoi", key,
                                         "event", "EditorCreated"));
                         Element editorElement =
-                                xmldoc.createElementTimestamp("editor", "editors", initialAttrs); // FIXME: deal with the mutable thing above
+                                xmldoc.createElementTimestamp("editor", "editors", initialAttrs);
                         info.editorCtr += 1;
                         // Now it's safe to add component listener since the editor is actually visible
                         ComponentListener editorListener = componentListenerCreator(key);
