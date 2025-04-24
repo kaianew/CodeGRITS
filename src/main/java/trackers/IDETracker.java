@@ -33,6 +33,7 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
 import com.intellij.util.ui.update.Activatable;
 import com.intellij.util.ui.update.UiNotifyConnector;
 import entity.AOIBounds;
+import entity.IDETrackerInfo;
 import entity.XMLDocumentHandler;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
@@ -63,12 +64,13 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
  * This class is the IDE tracker.
  */
 public final class IDETracker implements Disposable {
-    boolean isTracking = false;
+
+    private IDETrackerInfo info = new IDETrackerInfo();
     /**
      * This variable is the XML document for storing the tracking data.
      */
-    private XMLDocumentHandler xmldoc = new XMLDocumentHandler("ide_tracking");
-    private List<String> ELEMENTS = List.of("environment",
+    private final XMLDocumentHandler xmldoc = new XMLDocumentHandler("ide_tracking");
+    private final List<String> ELEMENTS = List.of("environment",
     "actions",
     "archives",
     "typings",
@@ -110,7 +112,7 @@ public final class IDETracker implements Disposable {
     DocumentListener documentListener = new DocumentListener() {
         @Override
         public void documentChanged(@NotNull DocumentEvent event) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return; // FIXME: this should just be deregistered
             if (event.getDocument().getText().length() == 0) return;
             if (EditorFactory.getInstance().getEditors(event.getDocument()).length == 0) return;
             Editor currentEditor = EditorFactory.getInstance().getEditors(event.getDocument())[0];
@@ -134,20 +136,20 @@ public final class IDETracker implements Disposable {
     EditorMouseListener editorMouseListener = new EditorMouseListener() {
         @Override
         public void mousePressed(@NotNull EditorMouseEvent e) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return; // FIXME: instead, make sure this is just deregistered when tracking stops, and vice versa
             getMouseElement(e, "mousePressed");
         }
 
         @Override
         public void mouseClicked(@NotNull EditorMouseEvent e) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return;
             Element mouseElement = getMouseElement(e, "mouseClicked");
             handleElement(mouseElement);
         }
 
         @Override
         public void mouseReleased(@NotNull EditorMouseEvent e) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return;
             Element mouseElement = getMouseElement(e, "mouseReleased");
             handleElement(mouseElement);
         }
@@ -160,14 +162,14 @@ public final class IDETracker implements Disposable {
     EditorMouseMotionListener editorMouseMotionListener = new EditorMouseMotionListener() {
         @Override
         public void mouseMoved(@NotNull EditorMouseEvent e) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return;
             Element mouseElement = getMouseElement(e, "mouseMoved");
             handleElement(mouseElement);
         }
 
         @Override
         public void mouseDragged(@NotNull EditorMouseEvent e) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return;
             Element mouseElement = getMouseElement(e, "mouseDragged");
             handleElement(mouseElement);
         }
@@ -180,7 +182,7 @@ public final class IDETracker implements Disposable {
     CaretListener caretListener = new CaretListener() {
         @Override
         public void caretPositionChanged(@NotNull CaretEvent e) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return;
             Element caretElement = xmldoc.createElementAtNamedParent("caret", "carets");
             caretElement.setAttribute("id", "caretPositionChanged");
             caretElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
@@ -200,7 +202,7 @@ public final class IDETracker implements Disposable {
     SelectionListener selectionListener = new SelectionListener() {
         @Override
         public void selectionChanged(@NotNull SelectionEvent e) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return;
 
             Element selectionElement = xmldoc.createElementAtNamedParent("selection", "selections");
             selectionElement.setAttribute("id", "selectionChanged");
@@ -231,7 +233,7 @@ public final class IDETracker implements Disposable {
      * When the visible area is changed, the visible area event is tracked.
      */
     VisibleAreaListener visibleAreaListener = e -> {
-        if (!isTracking) return;
+        if (!info.isTracking()) return;
         if (e.getEditor().getEditorKind() == EditorKind.MAIN_EDITOR) {
             VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
             Element visibleAreaElement = xmldoc.createElementAtNamedParent("visible_area", "visible_areas");
@@ -271,7 +273,7 @@ public final class IDETracker implements Disposable {
         public void stateChanged(@NotNull ToolWindowManager toolWindowManager,
                                  @NotNull ToolWindow toolWindow,
                                  @NotNull ToolWindowManagerListener.ToolWindowManagerEventType changeType) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return;
             String windowId = toolWindow.getId();
             boolean isCurrentlyVisible = toolWindow.isVisible();
             boolean wasVisible = previousVisibilityState.getOrDefault(windowId, false);
@@ -325,7 +327,7 @@ public final class IDETracker implements Disposable {
     JBPopupListener popupListener = new JBPopupListener() {
         @Override
         public void onClosed(@NotNull LightweightWindowEvent event) {
-            if (!isTracking) return;
+            if (!info.isTracking()) return;
             if (!SEOpen) return; // if the search everywhere popup isn't open, don't record closing it
             String popupId = "SearchEverywhere";
             AOIMap.remove(popupId);
@@ -355,7 +357,7 @@ public final class IDETracker implements Disposable {
         @Override
         public void run() {
             if (changedFilepath.length() > 0) {
-                if (!isTracking) return;
+                if (!info.isTracking()) return;
                 archiveFile(changedFilepath, String.valueOf(System.currentTimeMillis()),
                         "contentChanged", changedFileText);
                 changedFilepath = "";
@@ -414,29 +416,7 @@ public final class IDETracker implements Disposable {
         editorElement.setAttribute("height", String.valueOf(bounds.height));
     }
 
-    /**
-     * This constructor initializes the IDE tracker.
-     */
-    IDETracker() throws ParserConfigurationException {
-        AOIMap = new HashMap<>();
-        EditorMap = new HashMap<>();
-        for(String element : ELEMENTS) {
-            xmldoc.initializeElementAtRoot(element);
-        }
-        Element environment = xmldoc.getElement("environment");
-
-
-        Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
-        environment.setAttribute("screen_size", "(" + size.width + "," + size.height + ")");
-        GraphicsConfiguration config = GraphicsEnvironment.getLocalGraphicsEnvironment().
-                getDefaultScreenDevice().getDefaultConfiguration();
-        environment.setAttribute("scale_x", String.valueOf(config.getDefaultTransform().getScaleX()));
-        environment.setAttribute("scale_y", String.valueOf(config.getDefaultTransform().getScaleY()));
-        environment.setAttribute("os_name", System.getProperty("os.name"));
-        environment.setAttribute("java_version", System.getProperty("java.version"));
-        environment.setAttribute("ide_version", ApplicationInfo.getInstance().getFullVersion());
-        environment.setAttribute("ide_name", ApplicationInfo.getInstance().getVersionName());
-
+    public void initializeListeners() {
         EditorFactory editorFactory = EditorFactory.getInstance();
         editorFactory.addEditorFactoryListener(new EditorFactoryListener() {
             @Override
@@ -496,7 +476,7 @@ public final class IDETracker implements Disposable {
 
                     @Override
                     public void beforeActionPerformed(@NotNull AnAction action, @NotNull AnActionEvent event) {
-                        if (isTracking) {
+                        if (info.isTracking()) {
                             Element actionElement = xmldoc.createElementAtNamedParent("action", "actions");
                             actionElement.setAttribute("id", ActionManager.getInstance().getId(action));
                             actionElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
@@ -564,7 +544,7 @@ public final class IDETracker implements Disposable {
 
                     @Override
                     public void beforeEditorTyping(char c, @NotNull DataContext dataContext) {
-                        if (isTracking) {
+                        if (info.isTracking()) {
                             Element typingElement = xmldoc.createElementAtNamedParent("typing", "typings");
                             typingElement.setAttribute("character", String.valueOf(c));
                             typingElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
@@ -589,7 +569,7 @@ public final class IDETracker implements Disposable {
 
                     @Override
                     public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                        if (isTracking) {
+                        if (info.isTracking()) {
                             Element fileElement = xmldoc.createElementAtNamedParent("file", "files");
                             fileElement.setAttribute("id", "fileOpened");
                             String timestamp = String.valueOf(System.currentTimeMillis());
@@ -603,7 +583,7 @@ public final class IDETracker implements Disposable {
 
                     @Override
                     public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                        if (isTracking) {
+                        if (info.isTracking()) {
                             Element fileElement = xmldoc.createElementAtNamedParent("file", "files");
                             fileElement.setAttribute("id", "fileClosed");
                             String timestamp = String.valueOf(System.currentTimeMillis());
@@ -617,7 +597,7 @@ public final class IDETracker implements Disposable {
 
                     @Override
                     public void selectionChanged(@NotNull FileEditorManagerEvent event) {
-                        if (isTracking) {
+                        if (info.isTracking()) {
                             Element fileElement = xmldoc.createElementAtNamedParent("file", "files");
 
                             fileElement.setAttribute("id", "selectionChanged");
@@ -638,8 +618,32 @@ public final class IDETracker implements Disposable {
                         }
                     }
                 });
-                // FIXME: is this timer what makes it so slow to open the config file?
-                timer.schedule(timerTask, 0, 1);
+    }
+    /**
+     * This constructor initializes the IDE tracker.
+     */
+    IDETracker() throws ParserConfigurationException {
+        AOIMap = new HashMap<>();
+        EditorMap = new HashMap<>();
+        for(String element : ELEMENTS) {
+            xmldoc.initializeElementAtRoot(element);
+        }
+        Element environment = xmldoc.getElement("environment");
+
+
+        Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
+        environment.setAttribute("screen_size", "(" + size.width + "," + size.height + ")");
+        GraphicsConfiguration config = GraphicsEnvironment.getLocalGraphicsEnvironment().
+                getDefaultScreenDevice().getDefaultConfiguration();
+        environment.setAttribute("scale_x", String.valueOf(config.getDefaultTransform().getScaleX()));
+        environment.setAttribute("scale_y", String.valueOf(config.getDefaultTransform().getScaleY()));
+        environment.setAttribute("os_name", System.getProperty("os.name"));
+        environment.setAttribute("java_version", System.getProperty("java.version"));
+        environment.setAttribute("ide_version", ApplicationInfo.getInstance().getFullVersion());
+        environment.setAttribute("ide_name", ApplicationInfo.getInstance().getVersionName());
+
+        // FIXME: is this timer what makes it so slow to open the config file?
+        timer.schedule(timerTask, 0, 1);
     }
 
     /**
@@ -657,7 +661,7 @@ public final class IDETracker implements Disposable {
      * @param project The project.
      */
     public void startTracking(Project project) {
-        isTracking = true;
+        info.startTracking();
         Element environment = xmldoc.getElement("environment");
         environment.setAttribute("project_path", projectPath);
         environment.setAttribute("project_name", projectPath.substring(
@@ -709,7 +713,7 @@ public final class IDETracker implements Disposable {
      * This method stops tracking. All the listeners are removed. The tracking data is written to the XML file.
      */
     public void stopTracking() throws TransformerException {
-        isTracking = false;
+        info.stopTracking();
         editorEventMulticaster.removeDocumentListener(documentListener);
         editorEventMulticaster.removeEditorMouseListener(editorMouseListener);
         editorEventMulticaster.removeEditorMouseMotionListener(editorMouseMotionListener);
@@ -724,14 +728,14 @@ public final class IDETracker implements Disposable {
      * This method pauses tracking. The {@code isTracking} is set to false.
      */
     public void pauseTracking() {
-        isTracking = false;
+        info.stopTracking();
     }
 
     /**
      * This method resumes tracking. The {@code isTracking} is set to true.
      */
     public void resumeTracking() {
-        isTracking = true;
+        info.startTracking();
     }
 
     /**
@@ -849,7 +853,7 @@ public final class IDETracker implements Disposable {
      * @return Whether the IDE tracker is tracking.
      */
     public boolean isTracking() {
-        return isTracking;
+        return info.isTracking();
     }
 
 }

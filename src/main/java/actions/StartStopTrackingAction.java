@@ -100,6 +100,7 @@ public class StartStopTrackingAction extends AnAction {
                 iDETracker = IDETracker.getInstance();
                 iDETracker.setProjectPath(projectPath);
                 iDETracker.setDataOutputPath(realDataOutputPath);
+                iDETracker.initializeListeners();
                 iDETracker.startTracking(e.getProject());
 
                 if (config.getCheckBoxes().get(1)) {
@@ -138,7 +139,7 @@ public class StartStopTrackingAction extends AnAction {
     public static boolean isTracking() {
         return isTracking;
     }
-
+   // FIXME wtf is with this
     public static boolean isPaused() {
         return !iDETracker.isTracking();
     }
