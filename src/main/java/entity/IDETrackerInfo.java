@@ -18,6 +18,9 @@ public class IDETrackerInfo {
     // The ToolWindowListener edits this, and the getAOIMap function allows the EyeTracker class to access it.
     public Map<String, AOIBounds> AOIMap = new HashMap<>();
     public Map<String, Editor> EditorMap = new HashMap<>();
+
+    public boolean SEOpen = false;
+
     public int editorCtr = 0;
 
     public String lastSelectionInfo = "";

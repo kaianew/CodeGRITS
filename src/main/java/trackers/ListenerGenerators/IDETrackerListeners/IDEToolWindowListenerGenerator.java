@@ -1,4 +1,4 @@
-package trackers.ListenerGenerators;
+package trackers.ListenerGenerators.IDETrackerListeners;
 
 import com.intellij.openapi.editor.event.VisibleAreaListener;
 import com.intellij.openapi.wm.ToolWindow;

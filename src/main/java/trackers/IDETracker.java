@@ -40,8 +40,7 @@ import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.actionSystem.ex.AnActionListener;
 import com.intellij.openapi.application.ApplicationManager;
 import org.jetbrains.annotations.NotNull;
-import trackers.ListenerGenerators.IDESimpleListenerGenerators;
-import trackers.ListenerGenerators.IDEToolWindowListenerGenerator;
+import trackers.ListenerGenerators.IDETrackerListeners.*;
 import utils.RelativePathGetter;
 import utils.XMLWriter;
 
@@ -75,7 +74,6 @@ public final class IDETracker implements Disposable {
 
     // for debugging purposes
     private static final Logger LOG = Logger.getInstance(IDETracker.class);
-    private boolean SEOpen = false;
 
 
     // Class for the Map below.
@@ -90,13 +88,13 @@ public final class IDETracker implements Disposable {
      * This variable is the mouse listener for the IDE tracker.
      * When the mouse is pressed, clicked, or released, the mouse event is tracked.
      */
-    EditorMouseListener editorMouseListener = IDESimpleListenerGenerators.getMouseListener(info, xmldoc);
+    EditorMouseListener editorMouseListener = IDEMouseListenerGenerator.getMouseListener(info, xmldoc);
 
     /**
      * This variable is the mouse motion listener for the IDE tracker.
      * When the mouse is moved or dragged, the mouse event is tracked.
      */
-    EditorMouseMotionListener editorMouseMotionListener = IDESimpleListenerGenerators.getMouseMotionListener(info, xmldoc);
+    EditorMouseMotionListener editorMouseMotionListener = IDEMouseListenerGenerator.getMouseMotionListener(info, xmldoc);
     /**
      * This variable is the caret listener for the IDE tracker.
      * When the caret position is changed, the caret event is tracked.
@@ -119,41 +117,6 @@ public final class IDETracker implements Disposable {
     ToolWindowManagerListener toolWindowManagerListener = IDEToolWindowListenerGenerator.getToolWindowManagerListener(info, xmldoc);
 
 
-    private void recordPopupBounds(SearchEverywhereUI ui, String popupId, String eventType) {
-        Element popupElement =
-                xmldoc.createElementTimestamp("popup", "popups",
-                        Map.of("aoi", popupId,
-                                "event", eventType));
-
-        Point loc = ui.getLocationOnScreen();
-        // Supposed to use the underlying viewType variable to get this info
-        Dimension size = ui.getPreferredSize();
-        popupElement.setAttribute("x", String.valueOf(loc.x));
-        popupElement.setAttribute("y", String.valueOf(loc.y));
-        popupElement.setAttribute("width", String.valueOf(size.width));
-        popupElement.setAttribute("height", String.valueOf(size.height));
-        // make AOIBounds and add to stack
-
-        LOG.info("we are recording popup bounds in the map");
-        LOG.info(popupId);
-        AOIBounds bounds = new AOIBounds(loc.x, loc.y, size.width, size.height, popupId);
-        info.AOIMap.put(popupId, bounds);
-    }
-
-    // Listener for the "Search Everywhere" window
-    JBPopupListener popupListener = new JBPopupListener() {
-        @Override
-        public void onClosed(@NotNull LightweightWindowEvent event) {
-            if (!info.isTracking()) return;
-            if (!SEOpen) return; // if the search everywhere popup isn't open, don't record closing it
-            String popupId = "SearchEverywhere";
-            info.AOIMap.remove(popupId);
-            xmldoc.createElementTimestamp("popup", "popups",
-                    Map.of("aoi", popupId,
-                            "event", "PopupClosed"));
-            SEOpen = false;
-        }
-    };
     /**
      * This variable is the editor event multicaster for the IDE tracker.
      * It is used to add and remove all the listeners.
@@ -254,10 +217,10 @@ public final class IDETracker implements Disposable {
                         info.AOIMap.put(key, AOIBoundsVar);
 
                         Map<String, String> initialAttrs =
-                            IDETracker.addBoundsAttributes(point, bounds, Map.of("aoi", key,
-                                    "event", "EditorCreated"));
+                                IDETracker.addBoundsAttributes(point, bounds, Map.of("aoi", key,
+                                        "event", "EditorCreated"));
                         Element editorElement =
-                            xmldoc.createElementTimestamp("editor", "editors",initialAttrs); // FIXME: deal with the mutable thing above
+                                xmldoc.createElementTimestamp("editor", "editors", initialAttrs); // FIXME: deal with the mutable thing above
                         info.editorCtr += 1;
                         // Now it's safe to add component listener since the editor is actually visible
                         ComponentListener editorListener = componentListenerCreator(key);
@@ -287,143 +250,12 @@ public final class IDETracker implements Disposable {
         });
 
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(
-                AnActionListener.TOPIC, new AnActionListener() {
-
-                    @Override
-                    public void beforeActionPerformed(@NotNull AnAction action, @NotNull AnActionEvent event) {
-                        if (info.isTracking()) {
-                            VirtualFile virtualFile = event.getData(PlatformDataKeys.VIRTUAL_FILE);
-
-                            String eventName = ActionManager.getInstance().getId(action);
-                            Element actionElement =
-                                xmldoc.createElementTimestamp("action", "actions",
-                                        Map.of( "event", eventName != null? eventName : "" ,
-                                                "path", virtualFile != null ?
-                                                            RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : ""));
-                            info.handleElement(actionElement);
-
-                            // Handle the SearchEverywhere popup
-                            String actionId = ActionManager.getInstance().getId(action);
-                            if ("SearchEverywhere".equals(actionId)) {
-                                // The SE popup is now open, so we set SEOpen to true
-                                SEOpen = true;
-                                // FIXME: change out invokelater
-                                javax.swing.Timer timer = new javax.swing.Timer(50, (ActionEvent time_e) -> {
-                                    // Get the popup from the action and add our listener
-                                    Project project = event.getProject();
-                                    SearchEverywhereManager manager = SearchEverywhereManager.getInstance(project);
-                                    if (manager.isShown()) {
-                                        ((javax.swing.Timer) time_e.getSource()).stop();
-                                        SearchEverywhereUI ui = manager.getCurrentlyShownUI();
-                                        // Attach the viewTypeListener
-                                        BigPopupUI.ViewTypeListener viewTypeListener = new BigPopupUI.ViewTypeListener() {
-                                            @Override
-                                            public void suggestionsShown(@NotNull BigPopupUI.ViewType viewType) {
-                                                // viewType will either be FULL or SHORT, depending on the length of the panel
-                                                // Record size of the popup
-                                                SearchEverywhereManager manager = SearchEverywhereManager.getInstance(project);
-                                                if (manager.isShown()) {
-                                                    String popupId = "SearchEverywhere";
-                                                    // adds to map, records to xml
-                                                    recordPopupBounds(ui, popupId, "PopupViewChanged");
-                                                }
-                                            }
-                                        };
-                                        ui.addViewTypeListener(viewTypeListener);
-                                        // Use encapsulation-breaking reflective access to get the private myBalloon variable of the manager
-                                        Field balloonField;
-                                        try {
-                                            balloonField = manager.getClass().getDeclaredField("myBalloon");
-                                        } catch (NoSuchFieldException e) {
-                                            LOG.info("No myBalloon field in the SearchEverywhereManager.");
-                                            throw new RuntimeException(e);
-                                        }
-                                        balloonField.setAccessible(true);
-                                        JBPopup popup;
-                                        try {
-                                            popup = (JBPopup) balloonField.get(manager);
-                                        } catch (IllegalAccessException e) {
-                                            LOG.info("Illegal access of myBalloon.");
-                                            throw new RuntimeException(e);
-                                        }
-                                        String popupId = "SearchEverywhere";
-                                        // adds to stack, records to xml
-                                        recordPopupBounds(ui, popupId, "PopupOpened");
-                                        // can tell when popup closes.
-                                        popup.addListener(popupListener);
-                                    }
-                                    LOG.info("Didn't find the SearchEverywhere window yet.");
-                                });
-                                timer.start();
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void beforeEditorTyping(char c, @NotNull DataContext dataContext) {
-                        if (info.isTracking()) {
-                            VirtualFile virtualFile = dataContext.getData(PlatformDataKeys.VIRTUAL_FILE);
-
-                            Element typingElement = xmldoc.createElementTimestamp("typing", "typings",
-                                    Map.of( "character", String.valueOf(c),
-                                            "path", virtualFile != null ?
-                                                    RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null)
-                                    );
-                            Editor editor = dataContext.getData(CommonDataKeys.EDITOR);
-                            if (editor != null) {
-                                Caret primaryCaret = editor.getCaretModel().getPrimaryCaret();
-                                LogicalPosition logicalPos = primaryCaret.getLogicalPosition();
-                                typingElement.setAttribute("line", String.valueOf(logicalPos.line));
-                                typingElement.setAttribute("column", String.valueOf(logicalPos.column));
-                            }
-                            info.handleElement(typingElement);
-                        }
-                    }
-                });
+                AnActionListener.TOPIC, IDEActionListenerGenerator.getAnActionListener(info, xmldoc));
 
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(
-                FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
+                FileEditorManagerListener.FILE_EDITOR_MANAGER,
+                IDEFileEditorManagerListenerGenerator.getFileEditorManagerListener(info, xmldoc));
 
-                    private void handleFile(@NotNull FileEditorManager source, @NotNull VirtualFile file, String event) {
-                        if (info.isTracking()) {
-                            Element fileElement = xmldoc.createElementTimestamp("file", "files",
-                                    Map.of( "event", event,
-                                            "path", RelativePathGetter.getRelativePath(file.getPath(), info.projectPath)));
-                            xmldoc.archiveFile(info.dataOutputPath, info.projectPath, file.getPath(), String.valueOf(System.currentTimeMillis()), event, null);
-                            info.handleElement(fileElement);
-                        }
-                    }
-                    @Override
-                    public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                        handleFile(source, file, "fileOpened");
-                    }
-
-                    @Override
-                    public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                        handleFile(source, file, "fileClosed");
-                    }
-
-                    @Override
-                    public void selectionChanged(@NotNull FileEditorManagerEvent event) {
-                        if (info.isTracking()) {
-                            Element fileElement = xmldoc.createElementTimestamp("file", "files", Map.of("event", "selectionChanged"));
-
-                            if (event.getOldFile() != null) {
-                                fileElement.setAttribute("old_path",
-                                        RelativePathGetter.getRelativePath(event.getOldFile().getPath(), info.projectPath));
-                                xmldoc.archiveFile(info.dataOutputPath, info.projectPath, event.getOldFile().getPath(), String.valueOf(System.currentTimeMillis()),
-                                        "selectionChanged | OldFile", null);
-                            }
-                            if (event.getNewFile() != null) {
-                                fileElement.setAttribute("new_path",
-                                        RelativePathGetter.getRelativePath(event.getNewFile().getPath(), info.projectPath));
-                                xmldoc.archiveFile(info.dataOutputPath, info.projectPath, event.getNewFile().getPath(), String.valueOf(System.currentTimeMillis()),
-                                        "selectionChanged | NewFile", null);
-                            }
-                            info.handleElement(fileElement);
-                        }
-                    }
-                });
     }
     /**
      * This constructor initializes the IDE tracker.
