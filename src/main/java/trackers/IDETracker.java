@@ -33,6 +33,7 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
 import com.intellij.util.ui.update.Activatable;
 import com.intellij.util.ui.update.UiNotifyConnector;
 import entity.AOIBounds;
+import entity.IDEListenerGenerators;
 import entity.IDETrackerInfo;
 import entity.XMLDocumentHandler;
 import org.apache.commons.io.FileUtils;
@@ -83,21 +84,12 @@ public final class IDETracker implements Disposable {
     "popups",
     "editors");
 
-    String projectPath = "";
     String dataOutputPath = "";
-    String lastSelectionInfo = "";
     // for debugging purposes
     private static final Logger LOG = Logger.getInstance(IDETracker.class);
     private boolean SEOpen = false;
 
-    /**
-     * This variable indicates whether the data is transmitted in real time.
-     */
-    private static boolean isRealTimeDataTransmitting = false;
-    /**
-     * This variable is the handler for the IDE tracker data.
-     */
-    private Consumer<Element> ideTrackerDataHandler;
+
     // Class for the Map below.
 
     // Variable for keeping track of visible AOIs and their bounds throughout recording.
@@ -144,14 +136,14 @@ public final class IDETracker implements Disposable {
         public void mouseClicked(@NotNull EditorMouseEvent e) {
             if (!info.isTracking()) return;
             Element mouseElement = getMouseElement(e, "mouseClicked");
-            handleElement(mouseElement);
+            info.handleElement(mouseElement);
         }
 
         @Override
         public void mouseReleased(@NotNull EditorMouseEvent e) {
             if (!info.isTracking()) return;
             Element mouseElement = getMouseElement(e, "mouseReleased");
-            handleElement(mouseElement);
+            info.handleElement(mouseElement);
         }
     };
 
@@ -164,14 +156,14 @@ public final class IDETracker implements Disposable {
         public void mouseMoved(@NotNull EditorMouseEvent e) {
             if (!info.isTracking()) return;
             Element mouseElement = getMouseElement(e, "mouseMoved");
-            handleElement(mouseElement);
+            info.handleElement(mouseElement);
         }
 
         @Override
         public void mouseDragged(@NotNull EditorMouseEvent e) {
             if (!info.isTracking()) return;
             Element mouseElement = getMouseElement(e, "mouseDragged");
-            handleElement(mouseElement);
+            info.handleElement(mouseElement);
         }
     };
 
@@ -179,54 +171,13 @@ public final class IDETracker implements Disposable {
      * This variable is the caret listener for the IDE tracker.
      * When the caret position is changed, the caret event is tracked.
      */
-    CaretListener caretListener = new CaretListener() {
-        @Override
-        public void caretPositionChanged(@NotNull CaretEvent e) {
-            if (!info.isTracking()) return;
-            Element caretElement = xmldoc.createElementAtNamedParent("caret", "carets");
-            caretElement.setAttribute("id", "caretPositionChanged");
-            caretElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
-            VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
-            caretElement.setAttribute("path", virtualFile != null ?
-                    RelativePathGetter.getRelativePath(virtualFile.getPath(), projectPath) : null);
-            caretElement.setAttribute("line", String.valueOf(e.getNewPosition().line));
-            caretElement.setAttribute("column", String.valueOf(e.getNewPosition().column));
-            handleElement(caretElement);
-        }
-    };
+    CaretListener caretListener =IDEListenerGenerators.getCaretListener(info, xmldoc);
 
     /**
      * This variable is the selection listener for the IDE tracker.
      * When the selection is changed, the selection event is tracked.
      */
-    SelectionListener selectionListener = new SelectionListener() {
-        @Override
-        public void selectionChanged(@NotNull SelectionEvent e) {
-            if (!info.isTracking()) return;
-
-            Element selectionElement = xmldoc.createElementAtNamedParent("selection", "selections");
-            selectionElement.setAttribute("id", "selectionChanged");
-            selectionElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
-            VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
-            selectionElement.setAttribute("path", virtualFile != null ?
-                    RelativePathGetter.getRelativePath(virtualFile.getPath(), projectPath) : null);
-            LogicalPosition startLogicalPos = e.getEditor().offsetToLogicalPosition(e.getNewRange().getStartOffset());
-            LogicalPosition endLogicalPos = e.getEditor().offsetToLogicalPosition(e.getNewRange().getEndOffset());
-            selectionElement.setAttribute("start_position", startLogicalPos.line + ":" +
-                    startLogicalPos.column);
-            selectionElement.setAttribute("end_position", endLogicalPos.line + ":" +
-                    endLogicalPos.column);
-            selectionElement.setAttribute("selected_text", e.getEditor().getSelectionModel().getSelectedText());
-
-            String currentSelectionInfo = selectionElement.getAttribute("path") + "-" +
-                    selectionElement.getAttribute("start_position") + "-" +
-                    selectionElement.getAttribute("end_position") + "-" +
-                    selectionElement.getAttribute("selected_text");
-            if (currentSelectionInfo.equals(lastSelectionInfo)) return;
-            lastSelectionInfo = currentSelectionInfo;
-            handleElement(selectionElement);
-        }
-    };
+    SelectionListener selectionListener = IDEListenerGenerators.getSelectionListener(info, xmldoc);
 
     /**
      * This variable is the visible area listener for the IDE tracker.
@@ -240,12 +191,12 @@ public final class IDETracker implements Disposable {
             visibleAreaElement.setAttribute("id", "visibleAreaChanged");
             visibleAreaElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
             visibleAreaElement.setAttribute("path", virtualFile != null ?
-                    RelativePathGetter.getRelativePath(virtualFile.getPath(), projectPath) : null);
+                    RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
             visibleAreaElement.setAttribute("x", String.valueOf(e.getEditor().getScrollingModel().getHorizontalScrollOffset()));
             visibleAreaElement.setAttribute("y", String.valueOf(e.getEditor().getScrollingModel().getVerticalScrollOffset()));
             visibleAreaElement.setAttribute("width", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().width));
             visibleAreaElement.setAttribute("height", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().height));
-            handleElement(visibleAreaElement);
+            info.handleElement(visibleAreaElement);
         }
 
     };
@@ -482,8 +433,8 @@ public final class IDETracker implements Disposable {
                             actionElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
                             VirtualFile virtualFile = event.getData(PlatformDataKeys.VIRTUAL_FILE);
                             actionElement.setAttribute("path", virtualFile != null ?
-                                    RelativePathGetter.getRelativePath(virtualFile.getPath(), projectPath) : null);
-                            handleElement(actionElement);
+                                    RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
+                            info.handleElement(actionElement);
 
                             // Handle the SearchEverywhere popup
                             String actionId = ActionManager.getInstance().getId(action);
@@ -550,7 +501,7 @@ public final class IDETracker implements Disposable {
                             typingElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
                             VirtualFile virtualFile = dataContext.getData(PlatformDataKeys.VIRTUAL_FILE);
                             typingElement.setAttribute("path", virtualFile != null ?
-                                    RelativePathGetter.getRelativePath(virtualFile.getPath(), projectPath) : null);
+                                    RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
 
                             Editor editor = dataContext.getData(CommonDataKeys.EDITOR);
                             if (editor != null) {
@@ -559,7 +510,7 @@ public final class IDETracker implements Disposable {
                                 typingElement.setAttribute("line", String.valueOf(logicalPos.line));
                                 typingElement.setAttribute("column", String.valueOf(logicalPos.column));
                             }
-                            handleElement(typingElement);
+                            info.handleElement(typingElement);
                         }
                     }
                 });
@@ -575,9 +526,9 @@ public final class IDETracker implements Disposable {
                             String timestamp = String.valueOf(System.currentTimeMillis());
                             fileElement.setAttribute("timestamp", timestamp);
                             fileElement.setAttribute("path",
-                                    RelativePathGetter.getRelativePath(file.getPath(), projectPath));
+                                    RelativePathGetter.getRelativePath(file.getPath(), info.projectPath));
                             archiveFile(file.getPath(), timestamp, "fileOpened", null);
-                            handleElement(fileElement);
+                            info.handleElement(fileElement);
                         }
                     }
 
@@ -589,9 +540,9 @@ public final class IDETracker implements Disposable {
                             String timestamp = String.valueOf(System.currentTimeMillis());
                             fileElement.setAttribute("timestamp", timestamp);
                             fileElement.setAttribute("path",
-                                    RelativePathGetter.getRelativePath(file.getPath(), projectPath));
+                                    RelativePathGetter.getRelativePath(file.getPath(), info.projectPath));
                             archiveFile(file.getPath(), timestamp, "fileClosed", null);
-                            handleElement(fileElement);
+                            info.handleElement(fileElement);
                         }
                     }
 
@@ -604,17 +555,17 @@ public final class IDETracker implements Disposable {
                             fileElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
                             if (event.getOldFile() != null) {
                                 fileElement.setAttribute("old_path",
-                                        RelativePathGetter.getRelativePath(event.getOldFile().getPath(), projectPath));
+                                        RelativePathGetter.getRelativePath(event.getOldFile().getPath(), info.projectPath));
                                 archiveFile(event.getOldFile().getPath(), String.valueOf(System.currentTimeMillis()),
                                         "selectionChanged | OldFile", null);
                             }
                             if (event.getNewFile() != null) {
                                 fileElement.setAttribute("new_path",
-                                        RelativePathGetter.getRelativePath(event.getNewFile().getPath(), projectPath));
+                                        RelativePathGetter.getRelativePath(event.getNewFile().getPath(), info.projectPath));
                                 archiveFile(event.getNewFile().getPath(), String.valueOf(System.currentTimeMillis()),
                                         "selectionChanged | NewFile", null);
                             }
-                            handleElement(fileElement);
+                            info.handleElement(fileElement);
                         }
                     }
                 });
@@ -663,9 +614,9 @@ public final class IDETracker implements Disposable {
     public void startTracking(Project project) {
         info.startTracking();
         Element environment = xmldoc.getElement("environment");
-        environment.setAttribute("project_path", projectPath);
-        environment.setAttribute("project_name", projectPath.substring(
-                projectPath.lastIndexOf('/') + 1));
+        environment.setAttribute("project_path", info.projectPath);
+        environment.setAttribute("project_name", info.projectPath.substring(
+                info.projectPath.lastIndexOf('/') + 1));
         editorEventMulticaster.addDocumentListener(documentListener, () -> {
         });
         editorEventMulticaster.addEditorMouseListener(editorMouseListener, () -> {
@@ -706,7 +657,7 @@ public final class IDETracker implements Disposable {
      * @param ideTrackerDataHandler The handler for the IDE tracker data.
      */
     public void setIdeTrackerDataHandler(Consumer<Element> ideTrackerDataHandler) {
-        this.ideTrackerDataHandler = ideTrackerDataHandler;
+        info.ideTrackerDataHandler = ideTrackerDataHandler;
     }
 
     /**
@@ -738,22 +689,10 @@ public final class IDETracker implements Disposable {
         info.startTracking();
     }
 
-    /**
-     * This method sets the {@code isRealTimeDataTransmitting} variable.
-     *
-     * @param isRealTimeDataTransmitting Indicates whether the data is transmitted in real time.
-     */
-    public void setIsRealTimeDataTransmitting(boolean isRealTimeDataTransmitting) {
-        IDETracker.isRealTimeDataTransmitting = isRealTimeDataTransmitting;
-    }
-
     @Override
     public void dispose() {
     }
 
-    public void setProjectPath(String projectPath) {
-        this.projectPath = projectPath;
-    }
 
     /**
      * This method archives the file. If the file is a code file, the file is copied to the archive folder.
@@ -793,7 +732,7 @@ public final class IDETracker implements Disposable {
         }
         archive.setAttribute("timestamp", timestamp);
         if (!path.equals("unknown")) {
-            archive.setAttribute("path", RelativePathGetter.getRelativePath(path, projectPath));
+            archive.setAttribute("path", RelativePathGetter.getRelativePath(path, info.projectPath));
             archive.setAttribute("remark", remark);
         }
     }
@@ -811,7 +750,7 @@ public final class IDETracker implements Disposable {
         mouseElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
         VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
         mouseElement.setAttribute("path", virtualFile != null ?
-                RelativePathGetter.getRelativePath(virtualFile.getPath(), projectPath) : null);
+                RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
         MouseEvent mouseEvent = e.getMouseEvent();
         mouseElement.setAttribute("x", String.valueOf(mouseEvent.getXOnScreen()));
         mouseElement.setAttribute("y", String.valueOf(mouseEvent.getYOnScreen()));
@@ -832,20 +771,7 @@ public final class IDETracker implements Disposable {
         this.dataOutputPath = dataOutputPath;
     }
 
-    /**
-     * This method handles the XML element for real-time data transmission.
-     *
-     * @param element The XML element.
-     */
-    private void handleElement(Element element) {
-        if (ideTrackerDataHandler == null) {
-            return;
-//            throw new RuntimeException("ideTrackerDataHandler is null");
-        }
-        if (isRealTimeDataTransmitting) {
-            ideTrackerDataHandler.accept(element);
-        }
-    }
+
 
     /**
      * This method returns whether the IDE tracker is tracking.
