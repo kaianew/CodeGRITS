@@ -286,7 +286,7 @@ public class EyeTracker implements Disposable {
                     if (psiFile != null) {
                         int offset = editor.logicalPositionToOffset(logicalPosition);
                         PsiElement psiElement = psiFile.findElementAt(offset);
-                        Element location = xmldoc.createElementAtNamedParent("location", "eye_tracking");
+                        Element location = xmldoc.createElementAtRoot("location");
                         location.setAttribute("x", String.valueOf(gazePoint.eyeX));
                         location.setAttribute("y", String.valueOf(gazePoint.eyeY));
                         location.setAttribute("line", String.valueOf(logicalPosition.line));
@@ -384,9 +384,9 @@ public class EyeTracker implements Disposable {
         String leftTrackbox = rightInfo.split(", ")[5];
         String rightTrackbox = rightInfo.split(", ")[6];
 
-        Element rawGaze = xmldoc.createElementAtNamedParent("gaze", "gazes"); // FIXME: not sure about these three lines
-        Element leftEye = xmldoc.createElementAtNamedParent("left_eye", "eye_tracking");
-        Element rightEye = xmldoc.createElementAtNamedParent("right_eye", "eye_tracking");
+        Element rawGaze = xmldoc.createElementAtNamedParent("gaze", "gazes");
+        Element leftEye = xmldoc.createElementAtRoot("left_eye");
+        Element rightEye = xmldoc.createElementAtRoot("right_eye");
 
         rawGaze.appendChild(leftEye);
         rawGaze.appendChild(rightEye);
@@ -418,7 +418,7 @@ public class EyeTracker implements Disposable {
      */
     public Element getASTStructureElement(PsiElement psiElement) {
         String token = "", type = "";
-        Element aSTStructure = xmldoc.createElementAtNamedParent("ast_structure", "eye_tracking");
+        Element aSTStructure = xmldoc.createElementAtRoot("ast_structure");
         if (psiElement != null && psiElement.getTextLength() > 0) {
             token = psiElement.getText();
             type = psiElement.getNode().getElementType().toString();
@@ -434,7 +434,7 @@ public class EyeTracker implements Disposable {
             if (parent instanceof PsiFile) {
                 break;
             }
-            Element level = xmldoc.createElementAtNamedParent("level", "eye_tracking");
+            Element level = xmldoc.createElementAtRoot("level");
             aSTStructure.appendChild(level);
             level.setAttribute("tag", String.valueOf(parent));
             LogicalPosition startLogicalPosition = editor.offsetToLogicalPosition(parent.getTextRange().getStartOffset());

@@ -31,6 +31,10 @@ public class XMLDocumentHandler {
         parentMap.put(elementName,element);
     }
 
+    public Element createElementAtRoot(String elementName) {
+        return iDETracking.createElement(elementName);
+    }
+
     public Element createElementAtNamedParent(String elementName, String parentName) {
         Element element = iDETracking.createElement(elementName);
         Element parent = parentMap.get(parentName);
