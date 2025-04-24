@@ -1,14 +1,25 @@
 package entity;
 
+import com.intellij.openapi.editor.Editor;
 import org.w3c.dom.Element;
 import trackers.IDETracker;
 
+import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class IDETrackerInfo {
     private boolean tracking = false;
     public String projectPath = "";
     public String dataOutputPath = "";
+
+    // Variable for keeping track of visible AOIs and their bounds throughout recording.
+    // The ToolWindowListener edits this, and the getAOIMap function allows the EyeTracker class to access it.
+    public Map<String, AOIBounds> AOIMap = new HashMap<>();
+    public Map<String, Editor> EditorMap = new HashMap<>();
+    public int editorCtr = 0;
+
     public String lastSelectionInfo = "";
     public String changedFilepath = "";
     public String changedFileText = "";
@@ -62,5 +73,11 @@ public class IDETrackerInfo {
         this.dataOutputPath = dataOutputPath;
     }
 
+    public void registerAOIBounds(Component component, String componentID) {
+        Point location = component.getLocationOnScreen();
+        Dimension bounds = component.getSize();
+        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, componentID);
+        AOIMap.put(componentID, loc);
+    }
 
 }
