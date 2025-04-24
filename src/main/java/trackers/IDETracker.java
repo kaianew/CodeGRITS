@@ -84,7 +84,6 @@ public final class IDETracker implements Disposable {
     "popups",
     "editors");
 
-    String dataOutputPath = "";
     // for debugging purposes
     private static final Logger LOG = Logger.getInstance(IDETracker.class);
     private boolean SEOpen = false;
@@ -671,7 +670,7 @@ public final class IDETracker implements Disposable {
         editorEventMulticaster.removeCaretListener(caretListener);
         editorEventMulticaster.removeSelectionListener(selectionListener);
         editorEventMulticaster.removeVisibleAreaListener(visibleAreaListener);
-        String filePath = dataOutputPath + "/ide_tracking.xml";
+        String filePath = info.dataOutputPath + "/ide_tracking.xml";
         XMLWriter.writeToXML(xmldoc.getDocument(), filePath);
     }
 
@@ -704,7 +703,7 @@ public final class IDETracker implements Disposable {
      */
     public void archiveFile(String path, String timestamp, String remark, String text) {
         File srcFile = new File(path);
-        File destFile = new File(dataOutputPath + "/archives/" + timestamp + ".archive");
+        File destFile = new File(info.dataOutputPath + "/archives/" + timestamp + ".archive");
         String[] codeExtensions = {".java", ".cpp", ".c", ".py", ".rb", ".js", ".md", ".cs", ".html", ".htm", ".css", ".php", ".ts", ".swift", ".go", ".kt", ".kts", ".rs", ".pl", ".sh", ".bat", ".ps1", ".asp", ".aspx", ".jsp", ".lua"};
         try {
             if (path.equals("unknown")) {
@@ -763,17 +762,6 @@ public final class IDETracker implements Disposable {
     }
 
     /**
-     * This method sets the data output path.
-     *
-     * @param dataOutputPath The data output path.
-     */
-    public void setDataOutputPath(String dataOutputPath) {
-        this.dataOutputPath = dataOutputPath;
-    }
-
-
-
-    /**
      * This method returns whether the IDE tracker is tracking.
      *
      * @return Whether the IDE tracker is tracking.
@@ -782,4 +770,7 @@ public final class IDETracker implements Disposable {
         return info.isTracking();
     }
 
+    public void setInfo(IDETrackerInfo info) {
+        this.info = info;
+    }
 }

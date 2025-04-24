@@ -8,6 +8,8 @@ import java.util.function.Consumer;
 public class IDETrackerInfo {
     private boolean tracking = false;
     public String projectPath = "";
+    public String dataOutputPath = "";
+
     public String lastSelectionInfo = "";
 
     public String changedFilepath = "";
@@ -60,4 +62,15 @@ public class IDETrackerInfo {
     public void setProjectPath(String projectPath) {
         this.projectPath = projectPath;
     }
+
+    /**
+     * This method sets the data output path.
+     *
+     * @param dataOutputPath The data output path.
+     */
+    public void setDataOutputPath(String dataOutputPath) {
+        this.dataOutputPath = dataOutputPath;
+    }
+
+
 }

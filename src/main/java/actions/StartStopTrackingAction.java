@@ -6,6 +6,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import components.ConfigDialog;
 import entity.Config;
+import entity.IDETrackerInfo;
 import org.jetbrains.annotations.NotNull;
 import trackers.EyeTracker;
 import trackers.IDETracker;
@@ -98,8 +99,10 @@ public class StartStopTrackingAction extends AnAction {
 
                 TestTracker test = TestTracker.getInstance();
                 iDETracker = IDETracker.getInstance();
-                iDETracker.setProjectPath(projectPath);
-                iDETracker.setDataOutputPath(realDataOutputPath);
+                IDETrackerInfo info = new IDETrackerInfo();
+                info.setProjectPath(projectPath);
+                info.setDataOutputPath(realDataOutputPath);
+                iDETracker.setInfo(info);
                 iDETracker.initializeListeners();
                 iDETracker.startTracking(e.getProject());
 
