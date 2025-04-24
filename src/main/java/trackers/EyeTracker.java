@@ -49,7 +49,7 @@ import java.util.function.Consumer;
  * This class is the eye tracker.
  */
 public class EyeTracker implements Disposable {
-    private IDETrackerInfo info;
+    private IDETrackerInfo info; // FIXME: fix the listener setup so it doesn't have the same problem as IDETracker
 
     /**
      * This variable indicates the sample frequency of the eye tracker.

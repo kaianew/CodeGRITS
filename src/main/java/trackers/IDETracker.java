@@ -72,39 +72,38 @@ public final class IDETracker implements Disposable {
     /**
      * This variable is the document listener for the IDE tracker. When the document is changed, if the {@code EditorKind} is {@code CONSOLE}, the console output is archived. Otherwise, the {@code changedFilepath} and {@code changedFileText} are updated.
      */
-    DocumentListener documentListener = IDESimpleListenerGenerators.getDocumentListener(info, xmldoc);
-
+    DocumentListener documentListener;
     /**
      * This variable is the mouse listener for the IDE tracker.
      * When the mouse is pressed, clicked, or released, the mouse event is tracked.
      */
-    EditorMouseListener editorMouseListener = IDEMouseListenerGenerator.getMouseListener(info, xmldoc);
+    EditorMouseListener editorMouseListener;
 
     /**
      * This variable is the mouse motion listener for the IDE tracker.
      * When the mouse is moved or dragged, the mouse event is tracked.
      */
-    EditorMouseMotionListener editorMouseMotionListener = IDEMouseListenerGenerator.getMouseMotionListener(info, xmldoc);
+    EditorMouseMotionListener editorMouseMotionListener;
     /**
      * This variable is the caret listener for the IDE tracker.
      * When the caret position is changed, the caret event is tracked.
      */
-    CaretListener caretListener = IDESimpleListenerGenerators.getCaretListener(info, xmldoc);
+    CaretListener caretListener;
 
     /**
      * This variable is the selection listener for the IDE tracker.
      * When the selection is changed, the selection event is tracked.
      */
-    SelectionListener selectionListener = IDESimpleListenerGenerators.getSelectionListener(info, xmldoc);
+    SelectionListener selectionListener;
 
     /**
      * This variable is the visible area listener for the IDE tracker.
      * When the visible area is changed, the visible area event is tracked.
      */
-    VisibleAreaListener visibleAreaListener = IDESimpleListenerGenerators.getVisibleAreaListener(info, xmldoc);
+    VisibleAreaListener visibleAreaListener;
 
     // Listener for when the state of tool windows changes to record AOI bounds dynamically.
-    ToolWindowManagerListener toolWindowManagerListener = IDEToolWindowListenerGenerator.getToolWindowManagerListener(info, xmldoc);
+    ToolWindowManagerListener toolWindowManagerListener;
 
 
     /**
@@ -183,6 +182,13 @@ public final class IDETracker implements Disposable {
         return union;
     }
     public void initializeListeners() {
+       documentListener = IDESimpleListenerGenerators.getDocumentListener(info, xmldoc);
+        editorMouseListener = IDEMouseListenerGenerator.getMouseListener(info, xmldoc);
+        editorMouseMotionListener = IDEMouseListenerGenerator.getMouseMotionListener(info, xmldoc);
+        caretListener = IDESimpleListenerGenerators.getCaretListener(info, xmldoc);
+        selectionListener = IDESimpleListenerGenerators.getSelectionListener(info, xmldoc);
+        visibleAreaListener = IDESimpleListenerGenerators.getVisibleAreaListener(info, xmldoc);
+        toolWindowManagerListener =  IDEToolWindowListenerGenerator.getToolWindowManagerListener(info, xmldoc);
         EditorFactory editorFactory = EditorFactory.getInstance();
         editorFactory.addEditorFactoryListener(new EditorFactoryListener() {
             @Override
