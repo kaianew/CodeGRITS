@@ -6,12 +6,12 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import components.ConfigDialog;
 import entity.Config;
-import entity.IDETrackerInfo;
 import org.jetbrains.annotations.NotNull;
 import trackers.EyeTracker;
 import trackers.IDETracker;
 import trackers.ScreenRecorder;
 import trackers.TestTracker;
+import trackers.TrackerInfo.IDETrackerInfo;
 import utils.AvailabilityChecker;
 
 import javax.swing.*;
@@ -98,16 +98,17 @@ public class StartStopTrackingAction extends AnAction {
                 }
 
                 TestTracker test = TestTracker.getInstance();
-                iDETracker = IDETracker.getInstance();
-                iDETracker.setProjectPath(projectPath);
-                iDETracker.setDataOutputPath(realDataOutputPath);
+                IDETrackerInfo info = new IDETrackerInfo(); // here's an interesting question: I THINK both the eyetracker and the IDE tracker should use the same instance....right?
+                info.setProjectPath(projectPath);
+                info.setDataOutputPath(realDataOutputPath);
+
+                iDETracker = IDETracker.getInstance(info);
+
                 iDETracker.initializeListeners();
                 iDETracker.startTracking(e.getProject());
 
                 if (config.getCheckBoxes().get(1)) {
-                    eyeTracker = new EyeTracker(iDETracker);
-                    eyeTracker.setProjectPath(projectPath);
-                    eyeTracker.setDataOutputPath(realDataOutputPath);
+                    eyeTracker = new EyeTracker(info);
                     eyeTracker.setPythonInterpreter(config.getPythonInterpreter());
                     eyeTracker.setSampleFrequency(config.getSampleFreq());
                     // Set dominant eye

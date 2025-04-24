@@ -5,7 +5,7 @@ import com.intellij.openapi.editor.event.EditorMouseListener;
 import com.intellij.openapi.editor.event.EditorMouseMotionListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.vfs.VirtualFile;
-import entity.IDETrackerInfo;
+import trackers.TrackerInfo.IDETrackerInfo;
 import entity.XMLDocumentHandler;
 import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Element;

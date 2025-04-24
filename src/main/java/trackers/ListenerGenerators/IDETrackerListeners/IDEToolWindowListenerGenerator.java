@@ -1,17 +1,14 @@
 package trackers.ListenerGenerators.IDETrackerListeners;
 
-import com.intellij.openapi.editor.event.VisibleAreaListener;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
-import entity.IDETrackerInfo;
+import trackers.TrackerInfo.IDETrackerInfo;
 import entity.XMLDocumentHandler;
 import org.jetbrains.annotations.NotNull;
-import org.w3c.dom.Element;
 import trackers.IDETracker;
 
 import java.awt.Component;
-import java.awt.Point;
 import java.util.HashMap;
 import java.util.Map;
 

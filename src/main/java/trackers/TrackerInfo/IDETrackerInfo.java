@@ -1,6 +1,7 @@
-package entity;
+package trackers.TrackerInfo;
 
 import com.intellij.openapi.editor.Editor;
+import entity.AOIBounds;
 import org.w3c.dom.Element;
 import trackers.IDETracker;
 

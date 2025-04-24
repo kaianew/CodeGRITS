@@ -7,14 +7,12 @@ import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.event.*;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.vfs.VirtualFile;
-import entity.IDETrackerInfo;
+import trackers.TrackerInfo.IDETrackerInfo;
 import entity.XMLDocumentHandler;
 import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Element;
-import trackers.IDETracker;
 import utils.RelativePathGetter;
 
-import java.awt.event.MouseEvent;
 import java.util.Map;
 
 public class IDESimpleListenerGenerators {

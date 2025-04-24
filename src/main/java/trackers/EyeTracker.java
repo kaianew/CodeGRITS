@@ -23,9 +23,11 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import entity.XMLDocumentHandler;
 import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import trackers.TrackerInfo.IDETrackerInfo;
 import utils.RelativePathGetter;
 import utils.XMLWriter;
 
@@ -47,7 +49,8 @@ import java.util.function.Consumer;
  * This class is the eye tracker.
  */
 public class EyeTracker implements Disposable {
-    String dataOutputPath = "";
+    private IDETrackerInfo info;
+
     /**
      * This variable indicates the sample frequency of the eye tracker.
      */
@@ -57,14 +60,11 @@ public class EyeTracker implements Disposable {
     /**
      * This variable is the XML document for storing the eye tracking data.
      */
-    Document eyeTracking = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
-    Element root = eyeTracking.createElement("eye_tracking");
-    Element setting = eyeTracking.createElement("setting");
-    Element gazes = eyeTracking.createElement("gazes");
+    private final XMLDocumentHandler xmldoc = new XMLDocumentHandler("eye_tracking");
+    private final List<String> ELEMENTS = List.of("setting", "gazes");
     /**
      * This variable indicates whether the tracking is started.
      */
-    boolean isTracking = false;
     double screenWidth, screenHeight;
     String projectPath = "", filePath = "";
     PsiElement lastElement = null;
@@ -77,14 +77,9 @@ public class EyeTracker implements Disposable {
     int deviceIndex = 0;
     // This enum determines which eye is dominant, which affects the x,y calculation
     EyeEnum dominantEye;
-    private IDETracker ideTracker;
 
     private static final Logger LOG = Logger.getInstance(EyeTracker.class);
 
-    /**
-     * This variable indicates whether the real-time data is transmitting.
-     */
-    private static boolean isRealTimeDataTransmitting = false;
     /**
      * This variable is the handler for eye tracking data.
      */
@@ -93,12 +88,12 @@ public class EyeTracker implements Disposable {
     /**
      * This is the default constructor.
      */
-    public EyeTracker(IDETracker iDETracker) throws ParserConfigurationException {
-        this.ideTracker = iDETracker;
+    public EyeTracker(IDETrackerInfo info) throws ParserConfigurationException {
+        this.info = info;
+        for(String element : ELEMENTS) {
+            xmldoc.initializeElementAtRoot(element);
+        }
 
-        eyeTracking.appendChild(root);
-        root.appendChild(setting);
-        root.appendChild(gazes);
 
         Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
         screenWidth = size.getWidth();
@@ -164,7 +159,7 @@ public class EyeTracker implements Disposable {
      * @throws IOException The exception.
      */
     public void startTracking(Project project) throws IOException {
-        isTracking = true;
+        info.startTracking();
         psiDocumentManager = PsiDocumentManager.getInstance(project);
         editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
         if (editor != null) {
@@ -175,6 +170,7 @@ public class EyeTracker implements Disposable {
         if (virtualFiles.length > 0) {
             filePath = virtualFiles[0].getPath();
         }
+        Element setting = xmldoc.getParentElement("setting");
         if (deviceIndex == 0) {
             setting.setAttribute("eye_tracker", "Mouse");
         } else {
@@ -192,24 +188,24 @@ public class EyeTracker implements Disposable {
      * @throws TransformerException The exception.
      */
     public void stopTracking() throws TransformerException {
-        isTracking = false;
+        info.stopTracking(); // CLG FIXME: I don't love this indirection but haven't come up with a better way to do it
         pythonOutputThread.interrupt();
         pythonProcess.destroy();
-        XMLWriter.writeToXML(eyeTracking, dataOutputPath + "/eye_tracking.xml");
+        XMLWriter.writeToXML(xmldoc.getDocument(), info.dataOutputPath + "/eye_tracking.xml");
     }
 
     /**
      * This method pauses the eye tracking. The {@code isTracking} variable will be set to {@code false}.
      */
     public void pauseTracking() {
-        isTracking = false;
+        info.stopTracking();
     }
 
     /**
      * This method resumes the eye tracking. The {@code isTracking} variable will be set to {@code true}.
      */
     public void resumeTracking() {
-        isTracking = true;
+        info.startTracking();
     }
 
     private record EyeGazePoint(int eyeX, int eyeY) { } ;
@@ -254,9 +250,8 @@ public class EyeTracker implements Disposable {
      * @param message The raw data.
      */
     public void processRawData(String message) {
-        if (!isTracking) return;
+        if (!info.isTracking()) return;
         Element gaze = getRawGazeElement(message);
-        gazes.appendChild(gaze);
         EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
         if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
                                 // complain that gazePoint might be null after this point.
@@ -265,7 +260,7 @@ public class EyeTracker implements Disposable {
         }
 
         // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
-        AOIBounds popup = ideTracker.getAOIMap().get("SearchEverywhere");
+        AOIBounds popup = info.AOIMap.get("SearchEverywhere");
         if ((popup != null) && inBounds(popup, gazePoint)) {
             gaze.setAttribute("AOI", "SearchEverywhere");
             return;
@@ -291,7 +286,7 @@ public class EyeTracker implements Disposable {
                     if (psiFile != null) {
                         int offset = editor.logicalPositionToOffset(logicalPosition);
                         PsiElement psiElement = psiFile.findElementAt(offset);
-                        Element location = eyeTracking.createElement("location");
+                        Element location = xmldoc.createElementAtNamedParent("location", "eye_tracking");
                         location.setAttribute("x", String.valueOf(gazePoint.eyeX));
                         location.setAttribute("y", String.valueOf(gazePoint.eyeY));
                         location.setAttribute("line", String.valueOf(logicalPosition.line));
@@ -318,7 +313,7 @@ public class EyeTracker implements Disposable {
         // active visible area. In that case, check the AOI map in case they're looking somewhere else.
 
         // CLG can't help herself, demonstrating some fun with Streams...
-        ideTracker.getAOIMap().entrySet().stream()
+        info.AOIMap.entrySet().stream()
                 .filter(e -> inBounds(e.getValue(), gazePoint))
                 .findFirst()
                 .ifPresentOrElse(
@@ -360,15 +355,6 @@ public class EyeTracker implements Disposable {
         }
     }
 
-    /**
-     * This method sets the project path.
-     *
-     * @param projectPath The project path.
-     */
-    public void setProjectPath(String projectPath) {
-        this.projectPath = projectPath;
-    }
-
     @Override
     public void dispose() {
     }
@@ -398,9 +384,9 @@ public class EyeTracker implements Disposable {
         String leftTrackbox = rightInfo.split(", ")[5];
         String rightTrackbox = rightInfo.split(", ")[6];
 
-        Element rawGaze = eyeTracking.createElement("gaze");
-        Element leftEye = eyeTracking.createElement("left_eye");
-        Element rightEye = eyeTracking.createElement("right_eye");
+        Element rawGaze = xmldoc.createElementAtNamedParent("gaze", "gazes"); // FIXME: not sure about these three lines
+        Element leftEye = xmldoc.createElementAtNamedParent("left_eye", "eye_tracking");
+        Element rightEye = xmldoc.createElementAtNamedParent("right_eye", "eye_tracking");
 
         rawGaze.appendChild(leftEye);
         rawGaze.appendChild(rightEye);
@@ -432,7 +418,7 @@ public class EyeTracker implements Disposable {
      */
     public Element getASTStructureElement(PsiElement psiElement) {
         String token = "", type = "";
-        Element aSTStructure = eyeTracking.createElement("ast_structure");
+        Element aSTStructure = xmldoc.createElementAtNamedParent("ast_structure", "eye_tracking");
         if (psiElement != null && psiElement.getTextLength() > 0) {
             token = psiElement.getText();
             type = psiElement.getNode().getElementType().toString();
@@ -448,7 +434,7 @@ public class EyeTracker implements Disposable {
             if (parent instanceof PsiFile) {
                 break;
             }
-            Element level = eyeTracking.createElement("level");
+            Element level = xmldoc.createElementAtNamedParent("level", "eye_tracking");
             aSTStructure.appendChild(level);
             level.setAttribute("tag", String.valueOf(parent));
             LogicalPosition startLogicalPosition = editor.offsetToLogicalPosition(parent.getTextRange().getStartOffset());
@@ -466,15 +452,15 @@ public class EyeTracker implements Disposable {
      * @param element The element.
      */
     private void handleElement(Element element) {
-        if (eyeTrackerDataHandler != null && isRealTimeDataTransmitting) {
+        if (eyeTrackerDataHandler != null && IDETrackerInfo.isRealTimeDataTransmitting) {
             eyeTrackerDataHandler.accept(element);
         } else if (eyeTrackerDataHandler == null) {
 //            throw new RuntimeException("eyeTrackerDataHandler is null");
         }
     }
 
-    public static void setIsRealTimeDataTransmitting(boolean isRealTimeDataTransmitting) {
-        EyeTracker.isRealTimeDataTransmitting = isRealTimeDataTransmitting;
+    public void setIsRealTimeDataTransmitting(boolean b) {
+        IDETrackerInfo.isRealTimeDataTransmitting = b;
     }
 
     public void setEyeTrackerDataHandler(Consumer<Element> eyeTrackerDataHandler) {
@@ -483,10 +469,6 @@ public class EyeTracker implements Disposable {
 
     public void setPythonInterpreter(String pythonInterpreter) {
         this.pythonInterpreter = pythonInterpreter;
-    }
-
-    public void setDataOutputPath(String dataOutputPath) {
-        this.dataOutputPath = dataOutputPath;
     }
 
     public void setSampleFrequency(double sampleFrequency) {

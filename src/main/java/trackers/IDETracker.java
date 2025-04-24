@@ -3,25 +3,16 @@ package trackers;
 import javax.xml.parsers.*;
 import javax.xml.transform.TransformerException;
 
-import com.intellij.ide.actions.BigPopupUI;
-import com.intellij.ide.actions.searcheverywhere.SearchEverywhereManager;
-import com.intellij.ide.actions.searcheverywhere.SearchEverywhereUI;
-
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.editor.*;
 import com.intellij.openapi.editor.event.*;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.popup.JBPopup;
-import com.intellij.openapi.ui.popup.JBPopupListener;
-import com.intellij.openapi.ui.popup.LightweightWindowEvent;
 import com.intellij.openapi.vfs.VirtualFile;
 
 import java.awt.event.*;
-import java.lang.reflect.Field;
 import java.util.*;
 
 import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
@@ -36,12 +27,11 @@ import java.util.Timer;
 import java.util.function.Consumer;
 
 import com.intellij.openapi.Disposable;
-import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.actionSystem.ex.AnActionListener;
 import com.intellij.openapi.application.ApplicationManager;
 import org.jetbrains.annotations.NotNull;
 import trackers.ListenerGenerators.IDETrackerListeners.*;
-import utils.RelativePathGetter;
+import trackers.TrackerInfo.IDETrackerInfo;
 import utils.XMLWriter;
 
 // Imports for tool window bounds recording.
@@ -54,7 +44,7 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
  */
 public final class IDETracker implements Disposable {
 
-    private IDETrackerInfo info = new IDETrackerInfo();
+    private IDETrackerInfo info;
     /**
      * This variable is the XML document for storing the tracking data.
      */
@@ -258,8 +248,8 @@ public final class IDETracker implements Disposable {
     /**
      * This constructor initializes the IDE tracker.
      */
-    IDETracker() throws ParserConfigurationException {
-
+    IDETracker(IDETrackerInfo info) throws ParserConfigurationException {
+        this.info = info;
         for(String element : ELEMENTS) {
             xmldoc.initializeElementAtRoot(element);
         }
@@ -285,8 +275,8 @@ public final class IDETracker implements Disposable {
      *
      * @return The IDE tracker instance.
      */
-    public static IDETracker getInstance() throws ParserConfigurationException {
-        return new IDETracker();
+    public static IDETracker getInstance(IDETrackerInfo info) throws ParserConfigurationException {
+        return new IDETracker(info);
     }
 
     /**
@@ -379,11 +369,6 @@ public final class IDETracker implements Disposable {
     public void dispose() {
     }
 
-    // This method passes the AOIBounds Map so the EyeTracker can determine which AOI gazes are in.
-    public Map<String, AOIBounds> getAOIMap() {
-        return info.AOIMap;
-    }
-
     /**
      * This method returns whether the IDE tracker is tracking.
      *
@@ -393,20 +378,9 @@ public final class IDETracker implements Disposable {
         return info.isTracking();
     }
 
-    public void setInfo(IDETrackerInfo info) {
-        this.info = info;
-    }
-
     public void setIsRealTimeDataTransmitting(boolean b) {
         IDETrackerInfo.isRealTimeDataTransmitting = b;
     }
 
-    public void setProjectPath(String projectPath) {
-        info.setProjectPath(projectPath);
-    }
 
-    public void setDataOutputPath(String realDataOutputPath) {
-        // this level of indirection suggests poor design, but won't fix for now
-        info.setDataOutputPath(realDataOutputPath);
-    }
 }
