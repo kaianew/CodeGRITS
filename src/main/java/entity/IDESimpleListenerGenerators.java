@@ -1,16 +1,20 @@
 package entity;
 
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.EditorFactory;
+import com.intellij.openapi.editor.EditorKind;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.event.*;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Element;
+import trackers.IDETracker;
 import utils.RelativePathGetter;
 
 import java.awt.event.MouseEvent;
 
-public class IDEListenerGenerators {
+public class IDESimpleListenerGenerators {
 
 
     /**
@@ -74,6 +78,53 @@ public class IDEListenerGenerators {
         };
 
     }
+
+    public static DocumentListener getDocumentListener(IDETrackerInfo info, XMLDocumentHandler xmldoc) {
+
+        return new DocumentListener() {
+            @Override
+            public void documentChanged(@NotNull DocumentEvent event) {
+                if (!info.isTracking()) return; // FIXME: this should probably be deregistered
+                if (event.getDocument().getText().length() == 0) return;
+                if (EditorFactory.getInstance().getEditors(event.getDocument()).length == 0) return;
+                Editor currentEditor = EditorFactory.getInstance().getEditors(event.getDocument())[0];
+                if (currentEditor != null && currentEditor.getEditorKind() == EditorKind.CONSOLE) {
+                    xmldoc.archiveFile(info.dataOutputPath, info.projectPath, "unknown", String.valueOf(System.currentTimeMillis()),
+                            "", event.getDocument().getText());
+                    return;
+                }
+                VirtualFile changedFile = FileDocumentManager.getInstance().getFile(event.getDocument());
+                if (changedFile != null) {
+                    info.changedFilepath = changedFile.getPath();
+                    info.changedFileText = event.getDocument().getText();
+                }
+            }
+        };
+    }
+
+    public static VisibleAreaListener getVisibleAreaListener(IDETrackerInfo info, XMLDocumentHandler xmldoc){
+        return new VisibleAreaListener() {
+            @Override
+            public void visibleAreaChanged(@NotNull VisibleAreaEvent e) {
+                if (!info.isTracking()) return;
+                if (e.getEditor().getEditorKind() == EditorKind.MAIN_EDITOR) {
+                    VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
+                    Element visibleAreaElement = xmldoc.createElementAtNamedParent("visible_area", "visible_areas");
+                    visibleAreaElement.setAttribute("id", "visibleAreaChanged");
+                    visibleAreaElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
+                    visibleAreaElement.setAttribute("path", virtualFile != null ?
+                            RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
+                    visibleAreaElement.setAttribute("x", String.valueOf(e.getEditor().getScrollingModel().getHorizontalScrollOffset()));
+                    visibleAreaElement.setAttribute("y", String.valueOf(e.getEditor().getScrollingModel().getVerticalScrollOffset()));
+                    visibleAreaElement.setAttribute("width", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().width));
+                    visibleAreaElement.setAttribute("height", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().height));
+                    info.handleElement(visibleAreaElement);
+                }
+            };
+
+        };
+    }
+
     public static CaretListener getCaretListener(IDETrackerInfo info, XMLDocumentHandler xmldoc) {
         return new CaretListener() {
             @Override

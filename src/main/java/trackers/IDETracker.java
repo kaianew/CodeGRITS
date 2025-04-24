@@ -1,6 +1,5 @@
 package trackers;
 
-import javax.swing.*;
 import javax.xml.parsers.*;
 import javax.xml.transform.TransformerException;
 
@@ -18,26 +17,22 @@ import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopup;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.JBPopupListener;
 import com.intellij.openapi.ui.popup.LightweightWindowEvent;
 import com.intellij.openapi.vfs.VirtualFile;
 
 import java.awt.event.*;
-import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.*;
 
-import com.intellij.openapi.wm.WindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
 import com.intellij.util.ui.update.Activatable;
 import com.intellij.util.ui.update.UiNotifyConnector;
 import entity.AOIBounds;
-import entity.IDEListenerGenerators;
+import entity.IDESimpleListenerGenerators;
 import entity.IDETrackerInfo;
 import entity.XMLDocumentHandler;
 import org.apache.commons.io.FileUtils;
-import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import java.awt.*;
@@ -53,8 +48,6 @@ import com.intellij.openapi.application.ApplicationManager;
 import org.jetbrains.annotations.NotNull;
 import utils.RelativePathGetter;
 import utils.XMLWriter;
-
-import javax.xml.parsers.DocumentBuilderFactory;
 
 // Imports for tool window bounds recording.
 import com.intellij.openapi.wm.ToolWindow;
@@ -100,70 +93,36 @@ public final class IDETracker implements Disposable {
     /**
      * This variable is the document listener for the IDE tracker. When the document is changed, if the {@code EditorKind} is {@code CONSOLE}, the console output is archived. Otherwise, the {@code changedFilepath} and {@code changedFileText} are updated.
      */
-    DocumentListener documentListener = new DocumentListener() {
-        @Override
-        public void documentChanged(@NotNull DocumentEvent event) {
-            if (!info.isTracking()) return; // FIXME: this should just be deregistered
-            if (event.getDocument().getText().length() == 0) return;
-            if (EditorFactory.getInstance().getEditors(event.getDocument()).length == 0) return;
-            Editor currentEditor = EditorFactory.getInstance().getEditors(event.getDocument())[0];
-            if (currentEditor != null && currentEditor.getEditorKind() == EditorKind.CONSOLE) {
-                archiveFile("unknown", String.valueOf(System.currentTimeMillis()),
-                        "", event.getDocument().getText());
-                return;
-            }
-            VirtualFile changedFile = FileDocumentManager.getInstance().getFile(event.getDocument());
-            if (changedFile != null) {
-                changedFilepath = changedFile.getPath();
-                changedFileText = event.getDocument().getText();
-            }
-        }
-    };
+    DocumentListener documentListener = IDESimpleListenerGenerators.getDocumentListener(info, xmldoc);
 
     /**
      * This variable is the mouse listener for the IDE tracker.
      * When the mouse is pressed, clicked, or released, the mouse event is tracked.
      */
-    EditorMouseListener editorMouseListener = IDEListenerGenerators.getMouseListener(info, xmldoc);
+    EditorMouseListener editorMouseListener = IDESimpleListenerGenerators.getMouseListener(info, xmldoc);
 
     /**
      * This variable is the mouse motion listener for the IDE tracker.
      * When the mouse is moved or dragged, the mouse event is tracked.
      */
-    EditorMouseMotionListener editorMouseMotionListener = IDEListenerGenerators.getMouseMotionListener(info, xmldoc);
+    EditorMouseMotionListener editorMouseMotionListener = IDESimpleListenerGenerators.getMouseMotionListener(info, xmldoc);
     /**
      * This variable is the caret listener for the IDE tracker.
      * When the caret position is changed, the caret event is tracked.
      */
-    CaretListener caretListener = IDEListenerGenerators.getCaretListener(info, xmldoc);
+    CaretListener caretListener = IDESimpleListenerGenerators.getCaretListener(info, xmldoc);
 
     /**
      * This variable is the selection listener for the IDE tracker.
      * When the selection is changed, the selection event is tracked.
      */
-    SelectionListener selectionListener = IDEListenerGenerators.getSelectionListener(info, xmldoc);
+    SelectionListener selectionListener = IDESimpleListenerGenerators.getSelectionListener(info, xmldoc);
 
     /**
      * This variable is the visible area listener for the IDE tracker.
      * When the visible area is changed, the visible area event is tracked.
      */
-    VisibleAreaListener visibleAreaListener = e -> {
-        if (!info.isTracking()) return;
-        if (e.getEditor().getEditorKind() == EditorKind.MAIN_EDITOR) {
-            VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(e.getEditor().getDocument());
-            Element visibleAreaElement = xmldoc.createElementAtNamedParent("visible_area", "visible_areas");
-            visibleAreaElement.setAttribute("id", "visibleAreaChanged");
-            visibleAreaElement.setAttribute("timestamp", String.valueOf(System.currentTimeMillis()));
-            visibleAreaElement.setAttribute("path", virtualFile != null ?
-                    RelativePathGetter.getRelativePath(virtualFile.getPath(), info.projectPath) : null);
-            visibleAreaElement.setAttribute("x", String.valueOf(e.getEditor().getScrollingModel().getHorizontalScrollOffset()));
-            visibleAreaElement.setAttribute("y", String.valueOf(e.getEditor().getScrollingModel().getVerticalScrollOffset()));
-            visibleAreaElement.setAttribute("width", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().width));
-            visibleAreaElement.setAttribute("height", String.valueOf(e.getEditor().getScrollingModel().getVisibleArea().height));
-            info.handleElement(visibleAreaElement);
-        }
-
-    };
+    VisibleAreaListener visibleAreaListener = IDESimpleListenerGenerators.getVisibleAreaListener(info, xmldoc);
 
     // Saves new bounds to AOI map and records to XML.
     private void registerBoundsToElement(ToolWindow toolWindow, Element toolWindowElement) {
@@ -263,19 +222,18 @@ public final class IDETracker implements Disposable {
      * This variable is the timer for tracking the document changes.
      */
     Timer timer = new Timer();
-    String changedFilepath = "";
-    String changedFileText = "";
+
     /**
      * This variable is the timer task for tracking the document changes. If the {@code changedFilepath} is not empty, the file is archived.
      */
     TimerTask timerTask = new TimerTask() {
         @Override
         public void run() {
-            if (changedFilepath.length() > 0) {
+            if (info.changedFilepath.length() > 0) {
                 if (!info.isTracking()) return;
-                archiveFile(changedFilepath, String.valueOf(System.currentTimeMillis()),
-                        "contentChanged", changedFileText);
-                changedFilepath = "";
+                xmldoc.archiveFile(info.dataOutputPath, info.projectPath, info.changedFilepath, String.valueOf(System.currentTimeMillis()),
+                        "contentChanged", info.changedFileText);
+                info.changedFilepath = "";
             }
         }
     };
@@ -491,7 +449,7 @@ public final class IDETracker implements Disposable {
                             fileElement.setAttribute("timestamp", timestamp);
                             fileElement.setAttribute("path",
                                     RelativePathGetter.getRelativePath(file.getPath(), info.projectPath));
-                            archiveFile(file.getPath(), timestamp, "fileOpened", null);
+                            xmldoc.archiveFile(info.dataOutputPath, info.projectPath, file.getPath(), timestamp, "fileOpened", null);
                             info.handleElement(fileElement);
                         }
                     }
@@ -505,7 +463,7 @@ public final class IDETracker implements Disposable {
                             fileElement.setAttribute("timestamp", timestamp);
                             fileElement.setAttribute("path",
                                     RelativePathGetter.getRelativePath(file.getPath(), info.projectPath));
-                            archiveFile(file.getPath(), timestamp, "fileClosed", null);
+                            xmldoc.archiveFile(info.dataOutputPath, info.projectPath, file.getPath(), timestamp, "fileClosed", null);
                             info.handleElement(fileElement);
                         }
                     }
@@ -520,13 +478,13 @@ public final class IDETracker implements Disposable {
                             if (event.getOldFile() != null) {
                                 fileElement.setAttribute("old_path",
                                         RelativePathGetter.getRelativePath(event.getOldFile().getPath(), info.projectPath));
-                                archiveFile(event.getOldFile().getPath(), String.valueOf(System.currentTimeMillis()),
+                                xmldoc.archiveFile(info.dataOutputPath, info.projectPath, event.getOldFile().getPath(), String.valueOf(System.currentTimeMillis()),
                                         "selectionChanged | OldFile", null);
                             }
                             if (event.getNewFile() != null) {
                                 fileElement.setAttribute("new_path",
                                         RelativePathGetter.getRelativePath(event.getNewFile().getPath(), info.projectPath));
-                                archiveFile(event.getNewFile().getPath(), String.valueOf(System.currentTimeMillis()),
+                                xmldoc.archiveFile(info.dataOutputPath, info.projectPath, event.getNewFile().getPath(), String.valueOf(System.currentTimeMillis()),
                                         "selectionChanged | NewFile", null);
                             }
                             info.handleElement(fileElement);
@@ -610,7 +568,7 @@ public final class IDETracker implements Disposable {
         toolWindowManager.addToolWindowManagerListener(toolWindowManagerListener);
         FileEditorManager fileEditorManager = FileEditorManager.getInstance(project);
         for (VirtualFile file : fileEditorManager.getOpenFiles()) {
-            archiveFile(file.getPath(), String.valueOf(System.currentTimeMillis()), "fileOpened", null);
+            xmldoc.archiveFile(info.dataOutputPath, info.projectPath, file.getPath(), String.valueOf(System.currentTimeMillis()), "fileOpened", null);
         }
         // FIXME KLN: 1. You need to record all current editors to the list here, or somewhere like here, just like the toolwindows. 2. also attach listener
     }
@@ -658,48 +616,6 @@ public final class IDETracker implements Disposable {
     }
 
 
-    /**
-     * This method archives the file. If the file is a code file, the file is copied to the archive folder.
-     *
-     * @param path      The path of the file.
-     * @param timestamp The timestamp of the file.
-     * @param remark    The remark of the file.
-     * @param text      The text of the file.
-     */
-    public void archiveFile(String path, String timestamp, String remark, String text) {
-        File srcFile = new File(path);
-        File destFile = new File(info.dataOutputPath + "/archives/" + timestamp + ".archive");
-        String[] codeExtensions = {".java", ".cpp", ".c", ".py", ".rb", ".js", ".md", ".cs", ".html", ".htm", ".css", ".php", ".ts", ".swift", ".go", ".kt", ".kts", ".rs", ".pl", ".sh", ".bat", ".ps1", ".asp", ".aspx", ".jsp", ".lua"};
-        try {
-            if (path.equals("unknown")) {
-                FileUtils.writeStringToFile(destFile, text, "UTF-8", true);
-            } else {
-                if (Arrays.stream(codeExtensions).anyMatch(path::endsWith)) {
-                    if (text == null) {
-                        FileUtils.copyFile(srcFile, destFile);
-                    } else {
-                        FileUtils.writeStringToFile(destFile, text, "UTF-8", true);
-                    }
-                } else {
-                    remark += " | NotCodeFile | Fail";
-                }
-            }
-        } catch (IOException e) {
-            remark += " | IOException | Fail";
-        }
-
-        Element archive = xmldoc.createElementAtNamedParent("archive", "archives");
-        if (!path.equals("unknown")) {
-            archive.setAttribute("id", "fileArchive");
-        } else {
-            archive.setAttribute("id", "consoleArchive");
-        }
-        archive.setAttribute("timestamp", timestamp);
-        if (!path.equals("unknown")) {
-            archive.setAttribute("path", RelativePathGetter.getRelativePath(path, info.projectPath));
-            archive.setAttribute("remark", remark);
-        }
-    }
 
     // This method passes the AOIBounds Map so the EyeTracker can determine which AOI gazes are in.
     public Map<String, AOIBounds> getAOIMap() {

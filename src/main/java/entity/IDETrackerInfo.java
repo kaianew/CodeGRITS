@@ -9,9 +9,7 @@ public class IDETrackerInfo {
     private boolean tracking = false;
     public String projectPath = "";
     public String dataOutputPath = "";
-
     public String lastSelectionInfo = "";
-
     public String changedFilepath = "";
     public String changedFileText = "";
     /**
