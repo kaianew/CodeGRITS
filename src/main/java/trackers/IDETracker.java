@@ -53,7 +53,7 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
  */
 public final class IDETracker implements Disposable {
 
-    private IDETrackerInfo info;
+    private IDETrackerInfo info = new IDETrackerInfo();
     /**
      * This variable is the XML document for storing the tracking data.
      */
@@ -567,5 +567,14 @@ public final class IDETracker implements Disposable {
 
     public void setIsRealTimeDataTransmitting(boolean b) {
         IDETrackerInfo.isRealTimeDataTransmitting = b;
+    }
+
+    public void setProjectPath(String projectPath) {
+        info.setProjectPath(projectPath);
+    }
+
+    public void setDataOutputPath(String realDataOutputPath) {
+        // this level of indirection suggests poor design, but won't fix for now
+        info.setDataOutputPath(realDataOutputPath);
     }
 }

@@ -99,10 +99,8 @@ public class StartStopTrackingAction extends AnAction {
 
                 TestTracker test = TestTracker.getInstance();
                 iDETracker = IDETracker.getInstance();
-                IDETrackerInfo info = new IDETrackerInfo();
-                info.setProjectPath(projectPath);
-                info.setDataOutputPath(realDataOutputPath);
-                iDETracker.setInfo(info);
+                iDETracker.setProjectPath(projectPath);
+                iDETracker.setDataOutputPath(realDataOutputPath);
                 iDETracker.initializeListeners();
                 iDETracker.startTracking(e.getProject());
 
