@@ -49,6 +49,8 @@ public class IDEActionListenerGenerator {
                 info.AOIMap.put(popupId, bounds);
 
             }
+
+
             @Override
             public void beforeActionPerformed(@NotNull AnAction action, @NotNull AnActionEvent event) {
                 if (info.isTracking()) {
@@ -103,7 +105,6 @@ public class IDEActionListenerGenerator {
                                 try {
                                     popup = (JBPopup) balloonField.get(manager);
                                 } catch (IllegalAccessException e) {
-                                    LOG.info("Illegal access of myBalloon.");
                                     throw new RuntimeException(e);
                                 }
                                 recordPopupBounds(ui, "SearchEverywhere", "PopupOpened" );
