@@ -1,8 +1,6 @@
 package trackers;
 
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.event.VisibleAreaEvent;
 import com.intellij.openapi.editor.event.VisibleAreaListener;
 import com.intellij.openapi.fileEditor.*;
@@ -21,13 +19,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class TestTracker {
-    private static final Logger LOG = Logger.getInstance(TestTracker.class);
     private final Set<EditorWindow> knownWindows = ConcurrentHashMap.newKeySet();
     private final Timer debounceTimer = new Timer("EditorDebounceTimer", true);
     private final Map<String, TimerTask> resizeDebounceTasks = new HashMap<>();
     private TimerTask pendingDiffCheck = null;
-    private TimerTask pendingOpenLog = null;
-    private TimerTask pendingCloseLog = null;
 
     public TestTracker() {
         install();
@@ -38,70 +33,47 @@ public final class TestTracker {
         ApplicationManager.getApplication().getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                debounceFileEvent(file.getPath(), "opened", () -> {
-                    for (FileEditor editor : source.getEditors(file)) {
-                        // When file is opened, attach listener to the editor that it came from
-                        // Are we attaching multiple listeners? let's see in the method below
-                        // Verdict: you can be
-                        attachResizeMoveListener(editor, file.getName());
-                    }
-                    // Also schedule a check
-                    scheduleWindowDiffCheck(source.getProject());
-                });
+                System.out.println("Editor opened: " + file.getPath());
+                for (FileEditor editor : source.getEditors(file)) {
+                    attachResizeMoveListener(editor, file.getName());
+                }
+                // Also schedule a check
+                scheduleWindowDiffCheck(source.getProject());
             }
 
             @Override
             public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                debounceFileEvent(file.getPath(), "closed", () -> {
-                    scheduleWindowDiffCheck(source.getProject());
-                });
+                System.out.println("Editor closed: " + file.getPath());
+                scheduleWindowDiffCheck(source.getProject());
             }
         });
-
-     //   checkEditorWindowDiff(project);
-    }
-
-    private void debounceFileEvent(String path, String action, Runnable taskLogic) {
-        TimerTask task = new TimerTask() {
-            @Override
-            public void run() {
-                System.out.println("Editor " + action + ": " + path);
-                SwingUtilities.invokeLater(taskLogic);
-            }
-        };
-
-        if ("opened".equals(action)) {
-            if (pendingOpenLog != null) pendingOpenLog.cancel();
-            pendingOpenLog = task;
-        } else {
-            if (pendingCloseLog != null) pendingCloseLog.cancel();
-            pendingCloseLog = task;
-        }
-
-        debounceTimer.schedule(task, 200);
     }
 
     private void attachResizeMoveListener(FileEditor editor, String key) {
         // This might trigger more than once for the same editor.
         if (editor instanceof TextEditor) {
-            ((TextEditor) editor).getEditor().getScrollingModel().addVisibleAreaListener(new VisibleAreaListener() {
+            TimerTask task = new TimerTask() {
                 @Override
-                public void visibleAreaChanged(@NotNull VisibleAreaEvent visibleAreaEvent) {
-                    // This will trigger SO. MUCH.
-                    // but. hypothetically, it will trigger on resize and scroll
-                    // we want to 1. log when the visible code changes to XML and 2. log when the visible area is actually resized.
-                    // TODO: resize triggers when you select a new file.
-                    System.out.println("resize or scroll triggered: " + visibleAreaEvent);
+                public void run() {
+                    JComponent component = editor.getComponent();
+                    component.addComponentListener(new ComponentAdapter() {
+                        @Override
+                        public void componentResized(ComponentEvent e) {
+                            debounceResizeEvent(key, "resized");
+                        }
+                    });
                 }
-            });
+            };
+            // Schedule adding a listener, because otherwise it will trigger a bunch of resizes
+            debounceTimer.schedule(task, 250);
         }
     }
 
     private synchronized void debounceResizeEvent(String key, String eventType) {
+        // fixme: combine with IDEFileEditorManagerListenerGenerator
         if (resizeDebounceTasks.containsKey(key)) {
             resizeDebounceTasks.get(key).cancel();
         }
-
         TimerTask task = new TimerTask() {
             @Override
             public void run() {
@@ -122,8 +94,7 @@ public final class TestTracker {
         pendingDiffCheck = new TimerTask() {
             @Override
             public void run() {
-                // Invoke later and timer task
-                SwingUtilities.invokeLater(() -> updateKnownEditorWindows(project));
+                updateKnownEditorWindows(project);
             }
         };
 

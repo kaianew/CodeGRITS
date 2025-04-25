@@ -122,7 +122,7 @@ public final class IDETracker implements Disposable {
     TimerTask timerTask = new TimerTask() {
         @Override
         public void run() {
-            if (info.changedFilepath.length() > 0) {
+            if (!info.changedFilepath.isEmpty()) {
                 if (!info.isTracking()) return;
                 xmldoc.archiveFile(info.dataOutputPath, info.projectPath, info.changedFilepath, String.valueOf(System.currentTimeMillis()),
                         "contentChanged", info.changedFileText);
@@ -130,45 +130,6 @@ public final class IDETracker implements Disposable {
             }
         }
     };
-    private ComponentListener componentListenerCreator(String key) {
-        return new ComponentListener() {
-            @Override
-            public void componentResized(ComponentEvent e) {
-                LOG.info("Editor resized.");
-                // Need to update AOIBounds in AOIMap
-                // BUT maybe component not done resizing.
-                new UiNotifyConnector(e.getComponent(), new Activatable() {
-                    @Override
-                    public void showNotify() {
-                        // NOW it's really resized.
-                        Point point = e.getComponent().getLocationOnScreen();
-                        Dimension dim = e.getComponent().getSize();
-                        AOIBounds bounds = new AOIBounds(point.x, point.y, dim.width, dim.height, key);
-                        info.AOIMap.put(key, bounds);
-                        Map<String,String> attrs = IDETracker.addBoundsAttributes(point, dim, Map.of("aoi", key,
-                                "event", "EditorResized"));
-                        // Add XML resizing event
-                        xmldoc.createElementTimestamp("editor", "editors", attrs);
-                    }
-                });
-            }
-
-            @Override
-            public void componentMoved(ComponentEvent e) {
-                LOG.info("Editor moved");
-            }
-
-            @Override
-            public void componentShown(ComponentEvent e) {
-                LOG.info("Editor shown");
-            }
-
-            @Override
-            public void componentHidden(ComponentEvent e) {
-                LOG.info("Editor hidden");
-            }
-        };
-    }
 
     // CLG isn't convinced this should stay here
     public static Map<String,String> addBoundsAttributes(Point point, Dimension bounds, Map<String,String> attrs) {
@@ -189,59 +150,6 @@ public final class IDETracker implements Disposable {
         selectionListener = IDESimpleListenerGenerators.getSelectionListener(info, xmldoc);
         visibleAreaListener = IDESimpleListenerGenerators.getVisibleAreaListener(info, xmldoc);
         toolWindowManagerListener =  IDEToolWindowListenerGenerator.getToolWindowManagerListener(info, xmldoc);
-        EditorFactory editorFactory = EditorFactory.getInstance();
-        editorFactory.addEditorFactoryListener(new EditorFactoryListener() {
-            @Override
-            public void editorCreated(@NotNull EditorFactoryEvent editorFactoryEvent) {
-                Editor editor = editorFactoryEvent.getEditor();
-                LOG.info("EDITOR CREATED KAIA PART 2");
-
-                // Create UiNotifyConnector to detect when editor is actually shown
-                new UiNotifyConnector(editor.getContentComponent(), new Activatable() {
-                    @Override
-                    public void showNotify() {
-                        LOG.info("EDITOR ON SCREEN KAIA");
-                        Dimension bounds = editor.getContentComponent().getSize();
-                        Point point = editor.getContentComponent().getLocationOnScreen();
-
-                        // Add to EditorMap, AOIMap, and XML file
-                        String key = "Editor" + info.editorCtr;
-                        info.EditorMap.put(key, editor);
-                        AOIBounds AOIBoundsVar = new AOIBounds(point.x, point.y, bounds.width, bounds.height, key);
-                        info.AOIMap.put(key, AOIBoundsVar);
-
-                        Map<String, String> initialAttrs =
-                                IDETracker.addBoundsAttributes(point, bounds, Map.of("aoi", key,
-                                        "event", "EditorCreated"));
-                        Element editorElement =
-                                xmldoc.createElementTimestamp("editor", "editors", initialAttrs);
-                        info.editorCtr += 1;
-                        // Now it's safe to add component listener since the editor is actually visible
-                        ComponentListener editorListener = componentListenerCreator(key);
-                        editor.getContentComponent().addComponentListener(editorListener);
-                    }
-                });
-            }
-
-            @Override
-            public void editorReleased(@NotNull EditorFactoryEvent event) {
-                // Need to 1. remove from EditorMap and 2. remove from AOIMap
-                // We don't know the key. For now, go through EditorMap values and find the one that matches...
-                Editor editor = event.getEditor();
-                String key = "";
-                for (Map.Entry<String, Editor> entry : info.EditorMap.entrySet()) {
-                    if (editor.equals(entry.getValue())) {
-                        key = entry.getKey();
-                        break;
-                    }
-                }
-                info.EditorMap.remove(key);
-                info.AOIMap.remove(key);
-                xmldoc.createElementTimestamp("editor", "editors",
-                        Map.of("aoi", key,
-                                "event", "EditorReleased"));
-            }
-        });
 
         ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(
                 AnActionListener.TOPIC, IDEActionListenerGenerator.getAnActionListener(info, xmldoc));

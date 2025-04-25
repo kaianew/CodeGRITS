@@ -31,7 +31,7 @@ public class IDEToolWindowListenerGenerator {
                 if (isCurrentlyVisible != wasVisible ||
                         changeType == ToolWindowManagerListener.ToolWindowManagerEventType.MovedOrResized) {
                     String aoiEvent = "";
-                    boolean registerBounds = false; // hoisted on my own petard
+                    boolean registerBounds = false; // hoisted on my own petard // lol
                     switch(changeType) {
                         case HideToolWindow: aoiEvent = "WindowHidden";
                             info.AOIMap.remove(toolWindow.getId());

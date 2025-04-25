@@ -14,8 +14,6 @@ import java.util.Map;
 
 public class IDEFileEditorManagerListenerGenerator {
 
-    // Listener for the "Search Everywhere" window
-
     public static FileEditorManagerListener getFileEditorManagerListener(IDETrackerInfo info, XMLDocumentHandler xmldoc) {
         return new FileEditorManagerListener() {
             private void handleFile(@NotNull FileEditorManager source, @NotNull VirtualFile file, String event) {

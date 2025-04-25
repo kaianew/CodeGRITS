@@ -1,14 +1,13 @@
 package trackers.TrackerInfo;
 
-import com.intellij.openapi.editor.Editor;
 import entity.AOIBounds;
 import org.w3c.dom.Element;
-import trackers.IDETracker;
 
 import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import com.intellij.openapi.fileEditor.impl.EditorWindow;
 
 public class IDETrackerInfo {
     private boolean tracking = false;
@@ -16,9 +15,9 @@ public class IDETrackerInfo {
     public String dataOutputPath = "";
 
     // Variable for keeping track of visible AOIs and their bounds throughout recording.
-    // The ToolWindowListener edits this, and the getAOIMap function allows the EyeTracker class to access it.
     public Map<String, AOIBounds> AOIMap = new HashMap<>();
-    public Map<String, Editor> EditorMap = new HashMap<>();
+    // Variable for keeping track of currently-open editor windows in order to get current AST information.
+    public Map<String, EditorWindow> editorMap = new HashMap<>();
 
     public boolean SEOpen = false;
 
