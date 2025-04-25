@@ -10,7 +10,6 @@ import org.jetbrains.annotations.NotNull;
 import trackers.EyeTracker;
 import trackers.IDETracker;
 import trackers.ScreenRecorder;
-import trackers.TestTracker;
 import trackers.TrackerInfo.IDETrackerInfo;
 import utils.AvailabilityChecker;
 
@@ -97,7 +96,6 @@ public class StartStopTrackingAction extends AnAction {
                     screenRecorder.startRecording();
                 }
 
-                TestTracker test = TestTracker.getInstance();
                 IDETrackerInfo info = new IDETrackerInfo(); // here's an interesting question: I THINK both the eyetracker and the IDE tracker should use the same instance....right?
                 info.setProjectPath(projectPath);
                 info.setDataOutputPath(realDataOutputPath);

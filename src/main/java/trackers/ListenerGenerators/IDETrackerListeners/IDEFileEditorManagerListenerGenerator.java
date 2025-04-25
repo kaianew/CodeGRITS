@@ -4,6 +4,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.vfs.VirtualFile;
+import trackers.EditorTimerLogic;
 import trackers.TrackerInfo.IDETrackerInfo;
 import entity.XMLDocumentHandler;
 import org.jetbrains.annotations.NotNull;
@@ -11,6 +12,7 @@ import org.w3c.dom.Element;
 import utils.RelativePathGetter;
 
 import java.util.Map;
+import com.intellij.openapi.fileEditor.*;
 
 public class IDEFileEditorManagerListenerGenerator {
 
@@ -29,11 +31,20 @@ public class IDEFileEditorManagerListenerGenerator {
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileOpened");
+                System.out.println("Editor opened: " + file.getPath());
+                for (FileEditor editor : source.getEditors(file)) {
+                    // fixme: only want to add to new editorwindows?
+                    EditorTimerLogic.getInstance().attachResizeMoveListener(editor, file.getName());
+                }
+                // Also schedule a check
+                EditorTimerLogic.getInstance().scheduleWindowDiffCheck(source.getProject());
             }
 
             @Override
             public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileClosed");
+                System.out.println("Editor closed: " + file.getPath());
+                EditorTimerLogic.getInstance().scheduleWindowDiffCheck(source.getProject());
             }
 
             @Override

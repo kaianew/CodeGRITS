@@ -1,8 +1,6 @@
 package trackers;
 
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.editor.event.VisibleAreaEvent;
-import com.intellij.openapi.editor.event.VisibleAreaListener;
 import com.intellij.openapi.fileEditor.*;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
@@ -18,38 +16,13 @@ import java.awt.event.ComponentEvent;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class TestTracker {
+public final class EditorTimerLogic {
     private final Set<EditorWindow> knownWindows = ConcurrentHashMap.newKeySet();
     private final Timer debounceTimer = new Timer("EditorDebounceTimer", true);
     private final Map<String, TimerTask> resizeDebounceTasks = new HashMap<>();
     private TimerTask pendingDiffCheck = null;
 
-    public TestTracker() {
-        install();
-    }
-
-    private void install() {
-
-        ApplicationManager.getApplication().getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
-            @Override
-            public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                System.out.println("Editor opened: " + file.getPath());
-                for (FileEditor editor : source.getEditors(file)) {
-                    attachResizeMoveListener(editor, file.getName());
-                }
-                // Also schedule a check
-                scheduleWindowDiffCheck(source.getProject());
-            }
-
-            @Override
-            public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                System.out.println("Editor closed: " + file.getPath());
-                scheduleWindowDiffCheck(source.getProject());
-            }
-        });
-    }
-
-    private void attachResizeMoveListener(FileEditor editor, String key) {
+    public void attachResizeMoveListener(FileEditor editor, String key) {
         // This might trigger more than once for the same editor.
         if (editor instanceof TextEditor) {
             TimerTask task = new TimerTask() {
@@ -86,7 +59,7 @@ public final class TestTracker {
         debounceTimer.schedule(task, 200); // 200ms debounce delay
     }
 
-    private synchronized void scheduleWindowDiffCheck(Project project) {
+    public synchronized void scheduleWindowDiffCheck(Project project) {
         if (pendingDiffCheck != null) {
             pendingDiffCheck.cancel();
         }
@@ -94,6 +67,7 @@ public final class TestTracker {
         pendingDiffCheck = new TimerTask() {
             @Override
             public void run() {
+                // this was called twice
                 updateKnownEditorWindows(project);
             }
         };
@@ -108,7 +82,11 @@ public final class TestTracker {
         boolean changed = false;
 
         for (EditorWindow window : currentWindows) {
-            if (knownWindows.add(window)) {
+            // recursive??
+            // like, assume two new windows are created
+            // indeed, split screen case: old window is deleted, and then two windows are added
+            // that should be fine because we'll delete from and then add to map. but it was an odd log
+            if (knownWindows.add(window)) { // should be editormap.put ya
                 System.out.println("Tracking new editor window (split or new tab): " + window);
                 changed = true;
             }
@@ -134,7 +112,7 @@ public final class TestTracker {
 
 
 
-    public static TestTracker getInstance() {
-        return new TestTracker();
+    public static EditorTimerLogic getInstance() {
+        return new EditorTimerLogic();
     }
 }
