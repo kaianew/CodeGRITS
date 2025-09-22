@@ -16,12 +16,10 @@ public class IDETrackerInfo {
 
     // Variable for keeping track of visible AOIs and their bounds throughout recording.
     public Map<String, AOIBounds> AOIMap = new HashMap<>();
-    // Variable for keeping track of currently-open editor windows in order to get current AST information.
+    // TODO: Variable for keeping track of currently-open editor windows in order to get current AST information.
     public Map<String, EditorWindow> editorMap = new HashMap<>();
 
     public boolean SEOpen = false;
-
-    public int editorCtr = 0;
 
     public String lastSelectionInfo = "";
     public String changedFilepath = "";

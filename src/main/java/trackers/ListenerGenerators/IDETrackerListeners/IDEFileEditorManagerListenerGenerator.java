@@ -31,7 +31,7 @@ public class IDEFileEditorManagerListenerGenerator {
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileOpened");
-                System.out.println("Editor opened: " + file.getPath());
+                System.out.println("File opened: " + file.getPath());
                 for (FileEditor editor : source.getEditors(file)) {
                     // fixme: only want to add to new editorwindows?
                     EditorTimerLogic.getInstance().attachResizeMoveListener(editor, file.getName());

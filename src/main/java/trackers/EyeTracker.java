@@ -265,6 +265,7 @@ public class EyeTracker implements Disposable {
         }
 
         try {
+            // TODO: make sure the correct editor is here --> look it up in the editor map
             Point editorLocation = editor.getContentComponent().getLocationOnScreen();
             int relativeX = gazePoint.eyeX - editorLocation.x;
             int relativeY = gazePoint.eyeY - editorLocation.y;

@@ -218,6 +218,7 @@ public final class IDETracker implements Disposable {
         });
         ToolWindowManagerEx toolWindowManager = (ToolWindowManagerEx) ToolWindowManager.getInstance(project);
         // Record all current bounds of tool windows to map
+        // String[] bs = toolWindowManager.getToolWindowIds(); --> includes "Project" but not "Run" fine because people should not have run prior to start
         for (String id : toolWindowManager.getToolWindowIds()) {
             ToolWindow toolWindow = toolWindowManager.getToolWindow(id);
             if (toolWindow != null && toolWindow.isVisible()) {
@@ -228,6 +229,8 @@ public final class IDETracker implements Disposable {
                         Map.of( "aoi", toolWindow.getId(),
                                 "event", "InitialWindow")
                 );
+                // Add starting tool window to AOI map!
+                info.registerAOIBounds(component, id);
                 xmldoc.createElementTimestamp("tool_window", "tool_windows",attrs);
 
             }
