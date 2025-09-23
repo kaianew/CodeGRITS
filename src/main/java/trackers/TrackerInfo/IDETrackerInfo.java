@@ -16,8 +16,18 @@ public class IDETrackerInfo {
 
     // Variable for keeping track of visible AOIs and their bounds throughout recording.
     public Map<String, AOIBounds> AOIMap = new HashMap<>();
-    // TODO: Variable for keeping track of currently-open editor windows in order to get current AST information.
-    public Map<String, EditorWindow> editorMap = new HashMap<>();
+
+    // Data structure for tracking multiple editor windows/panes and their metadata
+    // Each Editor instance is mapped to its tracking info (file, bounds, etc.)
+    public final Map<Editor, EditorTrackingInfo> trackedEditors = new HashMap<>();
+
+    // Helper class to store metadata for each editor window/pane
+    public static class EditorTrackingInfo {
+        public com.intellij.openapi.vfs.VirtualFile file;      // Currently displayed file in this editor
+        public Rectangle bounds;                               // Editor window bounds
+        public boolean isActive;                               // Is this editor currently focused/active
+        // Extend with more fields as needed (e.g., listeners, AOI info)
+    }
 
     public boolean SEOpen = false;
 
@@ -28,7 +38,6 @@ public class IDETrackerInfo {
      * This variable is the handler for the IDE tracker data.
      */
     public Consumer<Element> ideTrackerDataHandler;
-
 
     /**
      * This variable indicates whether the data is transmitted in real time.
