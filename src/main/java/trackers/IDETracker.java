@@ -241,7 +241,6 @@ public final class IDETracker implements Disposable {
         for (VirtualFile file : fileEditorManager.getOpenFiles()) {
             xmldoc.archiveFile(info.dataOutputPath, info.projectPath, file.getPath(), String.valueOf(System.currentTimeMillis()), "fileOpened", null);
         }
-        // FIXME KLN: 1. You need to record all current editors to the list here, or somewhere like here, just like the toolwindows. 2. also attach listener
     }
 
     /**

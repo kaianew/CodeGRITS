@@ -1,5 +1,7 @@
 package trackers.TrackerInfo;
 
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import entity.AOIBounds;
 import org.w3c.dom.Element;
 
@@ -7,7 +9,6 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
-import com.intellij.openapi.editor.Editor;
 
 public class IDETrackerInfo {
     private boolean tracking = false;
@@ -19,14 +20,13 @@ public class IDETrackerInfo {
 
     // Data structure for tracking multiple editor windows/panes and their metadata
     // Each Editor instance is mapped to its tracking info (file, bounds, etc.)
-    public final Map<Editor, EditorTrackingInfo> trackedEditors = new HashMap<>();
+    public final Map<Editor, EditorTrackingInfo> visibleEditors = new HashMap<>();
 
     // Helper class to store metadata for each editor window/pane
     public static class EditorTrackingInfo {
-        public com.intellij.openapi.vfs.VirtualFile file;      // Currently displayed file in this editor
-        public Rectangle bounds;                               // Editor window bounds
-        public boolean isActive;                               // Is this editor currently focused/active
-        // Extend with more fields as needed (e.g., listeners, AOI info)
+        public String filePath;
+        // bounds should have the bounds of the visible area, not the entire window component.
+        public AOIBounds bounds;                               // Editor window bounds
     }
 
     public boolean SEOpen = false;

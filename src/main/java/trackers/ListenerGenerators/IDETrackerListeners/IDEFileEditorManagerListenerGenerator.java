@@ -1,16 +1,25 @@
 package trackers.ListenerGenerators.IDETrackerListeners;
 
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.fileEditor.FileEditor;
+import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
+import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
+import com.intellij.openapi.fileEditor.impl.FileEditorManagerImpl;
 import com.intellij.openapi.vfs.VirtualFile;
+import entity.AOIBounds;
 import trackers.TrackerInfo.IDETrackerInfo;
 import entity.XMLDocumentHandler;
 import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Element;
 import utils.RelativePathGetter;
 
+import java.awt.*;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class IDEFileEditorManagerListenerGenerator {
 
@@ -26,11 +35,26 @@ public class IDEFileEditorManagerListenerGenerator {
                 }
             }
 
-            // TODO: eventually manage state of filepath, visiblearea, and editors with this
+            // TODO: eventually manage state of filepath, visiblearea, and editors (in IDETrackerInfo) with this
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileOpened");
-                System.out.println("File opened: " + file.getPath());
+                // find visible editors and add to info's visible editors
+                FileEditor[] allEditors = source.getAllEditors();
+                for (FileEditor editor : allEditors) {
+                    if (editor.getComponent().isShowing()) {
+                        IDETrackerInfo.EditorTrackingInfo val = new IDETrackerInfo.EditorTrackingInfo();
+                        Component editorComponent = editor.getComponent();
+                        Point location = editorComponent.getLocationOnScreen();
+                        Dimension bounds = editorComponent.getSize();
+                        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, "Editor");
+                        String filePath = file.getPath();
+                        val.bounds = loc;
+                        val.filePath = filePath;
+                        info.visibleEditors.put((Editor) editor, val);
+                        System.out.println("we put an editor into our editor map");
+                    }
+                }
             }
 
             @Override
