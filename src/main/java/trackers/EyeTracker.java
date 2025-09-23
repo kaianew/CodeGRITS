@@ -98,30 +98,6 @@ public class EyeTracker implements Disposable {
         Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
         screenWidth = size.getWidth();
         screenHeight = size.getHeight();
-
-        ApplicationManager.getApplication().getMessageBus().connect(this).subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
-            @Override
-            public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-                editor = source.getSelectedTextEditor();
-                if (editor != null) {
-                    editor.getScrollingModel().addVisibleAreaListener(visibleAreaListener);
-                }
-                filePath = file.getPath();
-                visibleArea = editor.getScrollingModel().getVisibleArea();
-            }
-
-            @Override
-            public void selectionChanged(@NotNull FileEditorManagerEvent event) {
-                editor = event.getManager().getSelectedTextEditor() != null ? event.getManager().getSelectedTextEditor() : editor;
-                if (event.getNewFile() != null) {
-                    if (editor != null) {
-                        editor.getScrollingModel().addVisibleAreaListener(visibleAreaListener);
-                    }
-                    filePath = event.getNewFile().getPath();
-                    visibleArea = editor.getScrollingModel().getVisibleArea();
-                }
-            }
-        });
     }
 
     /**

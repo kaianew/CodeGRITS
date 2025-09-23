@@ -26,6 +26,7 @@ public class IDEFileEditorManagerListenerGenerator {
                 }
             }
 
+            // TODO: eventually manage state of filepath, visiblearea, and editors with this
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileOpened");
