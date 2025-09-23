@@ -7,7 +7,7 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
-import com.intellij.openapi.fileEditor.impl.EditorWindow;
+import com.intellij.openapi.editor.Editor;
 
 public class IDETrackerInfo {
     private boolean tracking = false;
