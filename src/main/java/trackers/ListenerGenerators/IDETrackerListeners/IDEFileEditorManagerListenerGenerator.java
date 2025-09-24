@@ -39,22 +39,17 @@ public class IDEFileEditorManagerListenerGenerator {
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileOpened");
-                // find visible editors and add to info's visible editors
-                FileEditor[] allEditors = source.getAllEditors();
-                for (FileEditor editor : allEditors) {
-                    if (editor.getComponent().isShowing()) {
-                        IDETrackerInfo.EditorTrackingInfo val = new IDETrackerInfo.EditorTrackingInfo();
-                        Component editorComponent = editor.getComponent();
-                        Point location = editorComponent.getLocationOnScreen();
-                        Dimension bounds = editorComponent.getSize();
-                        AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, "Editor");
-                        String filePath = file.getPath();
-                        val.bounds = loc;
-                        val.filePath = filePath;
-                        info.visibleEditors.put((Editor) editor, val);
-                        System.out.println("we put an editor into our editor map");
-                    }
-                }
+                Editor editor = source.getSelectedTextEditor();
+                IDETrackerInfo.EditorTrackingInfo val = new IDETrackerInfo.EditorTrackingInfo();
+                Component editorComponent = editor.getComponent();
+                Point location = editorComponent.getLocationOnScreen();
+                Dimension bounds = editorComponent.getSize();
+                AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, "Editor");
+                String filePath = file.getPath();
+                val.filePath = filePath;
+                val.editor = editor;
+                info.visibleEditors.put(loc, val); // I think this might resize a bunch so it might have different bounds
+                System.out.println("we put an editor into our editor map");
             }
 
             @Override
