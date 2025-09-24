@@ -16,9 +16,8 @@ import org.w3c.dom.Element;
 import utils.RelativePathGetter;
 
 import java.awt.*;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.List;
 
 public class IDEFileEditorManagerListenerGenerator {
 
@@ -55,6 +54,7 @@ public class IDEFileEditorManagerListenerGenerator {
                 handleFile(source, file, "fileOpened");
                 Editor editor = source.getSelectedTextEditor();
                 IDETrackerInfo.EditorTrackingInfo val = new IDETrackerInfo.EditorTrackingInfo();
+                assert editor != null;
                 Component editorComponent = editor.getComponent();
                 Point location = editorComponent.getLocationOnScreen();
                 Dimension bounds = editorComponent.getSize();
@@ -63,8 +63,17 @@ public class IDEFileEditorManagerListenerGenerator {
                 val.filePath = filePath;
                 val.editor = editor;
                 val.bounds = loc;
-                EditorWindow visibleEditorWindow = getEditorWindow((FileEditorManagerImpl) source, editor, file);
-                info.visibleEditors.put(visibleEditorWindow, val); // I think this might resize a bunch so it might have different bounds
+                EditorWindow editorWindow = getEditorWindow((FileEditorManagerImpl) source, editor, file);
+                // add to file --> window map
+                java.util.List<EditorWindow> editorWindowList = new ArrayList<>();
+                editorWindowList.add(editorWindow);
+                if (info.fileEditorWindows.containsKey(filePath)) {
+                    // add to list -- shame on you for opening the same file in a different window
+                    editorWindowList= info.fileEditorWindows.get(filePath);
+                    editorWindowList.add(editorWindow);
+                }
+                info.fileEditorWindows.put(filePath, editorWindowList);
+                info.visibleEditors.put(editorWindow, val); // I think this might resize a bunch so it might have different bounds
                 System.out.println("we put an editor into our editor map");
             }
 
@@ -72,6 +81,17 @@ public class IDEFileEditorManagerListenerGenerator {
             public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileClosed");
                 System.out.println("Editor closed: " + file.getPath());
+                // if editor window no longer visible, delete from map. need to look through
+                // lookup in file --> editorwindow map
+                java.util.List<EditorWindow> editorWindowList = info.fileEditorWindows.get(file.getPath());
+                // collect no longer visible editorwindows
+                java.util.List<EditorWindow> closedWindows = new ArrayList<>();
+                for (EditorWindow window : editorWindowList) {
+                    // if window is not visible, put in closedWindows list
+//                    if (window.getComponent().isShowing()) {
+//
+//                    }
+                }
             }
 
             @Override

@@ -30,6 +30,8 @@ public class IDETrackerInfo {
         public AOIBounds bounds;
     }
 
+    public final Map<String, java.util.List<EditorWindow>> fileEditorWindows = new HashMap<>();
+
     public boolean SEOpen = false;
 
     public String lastSelectionInfo = "";
