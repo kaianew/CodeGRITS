@@ -20,13 +20,14 @@ public class IDETrackerInfo {
 
     // Data structure for tracking multiple editor windows/panes and their metadata
     // Each Editor instance is mapped to its tracking info (file, bounds, etc.)
-    public final Map<AOIBounds, EditorTrackingInfo> visibleEditors = new HashMap<>();
+    public final Map<EditorWindow, EditorTrackingInfo> visibleEditors = new HashMap<>();
 
     // Helper class to store metadata for each editor window/pane
     public static class EditorTrackingInfo {
         public Editor editor;
         public String filePath;
-        // bounds should have the bounds of the visible area, not the entire window component.         // Editor window bounds
+        // bounds should have the bounds of the visible area, not the entire window component.
+        public AOIBounds bounds;
     }
 
     public boolean SEOpen = false;

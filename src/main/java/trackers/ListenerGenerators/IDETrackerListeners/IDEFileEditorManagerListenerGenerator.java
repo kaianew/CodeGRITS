@@ -1,15 +1,14 @@
 package trackers.ListenerGenerators.IDETrackerListeners;
 
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.fileEditor.FileEditor;
+import com.intellij.openapi.fileEditor.*;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
-import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
-import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
+import com.intellij.openapi.fileEditor.impl.EditorWithProviderComposite;
 import com.intellij.openapi.fileEditor.impl.FileEditorManagerImpl;
 import com.intellij.openapi.vfs.VirtualFile;
 import entity.AOIBounds;
+import org.bytedeco.javacpp.annotation.Virtual;
 import trackers.TrackerInfo.IDETrackerInfo;
 import entity.XMLDocumentHandler;
 import org.jetbrains.annotations.NotNull;
@@ -35,6 +34,21 @@ public class IDEFileEditorManagerListenerGenerator {
                 }
             }
 
+            public EditorWindow getEditorWindow(FileEditorManagerImpl fileEditorManager, Editor editor, VirtualFile file) {
+                EditorWindow[] windows = fileEditorManager.getWindows();
+                for (EditorWindow window: windows) {
+                    EditorWithProviderComposite composite = window.getSelectedEditor();
+                    FileEditor fileEditor = composite.getSelectedEditor();;
+                    if (fileEditor instanceof TextEditor) {
+                        Editor comparEditor = ((TextEditor) fileEditor).getEditor();
+                        if (composite != null && comparEditor == editor) {
+                            return window;
+                        }
+                    }
+                }
+                return null;
+            }
+
             // TODO: eventually manage state of filepath, visiblearea, and editors (in IDETrackerInfo) with this
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
@@ -48,7 +62,9 @@ public class IDEFileEditorManagerListenerGenerator {
                 String filePath = file.getPath();
                 val.filePath = filePath;
                 val.editor = editor;
-                info.visibleEditors.put(loc, val); // I think this might resize a bunch so it might have different bounds
+                val.bounds = loc;
+                EditorWindow visibleEditorWindow = getEditorWindow((FileEditorManagerImpl) source, editor, file);
+                info.visibleEditors.put(visibleEditorWindow, val); // I think this might resize a bunch so it might have different bounds
                 System.out.println("we put an editor into our editor map");
             }
 
