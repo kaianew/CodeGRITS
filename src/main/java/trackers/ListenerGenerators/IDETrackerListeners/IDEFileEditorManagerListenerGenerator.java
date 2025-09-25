@@ -5,8 +5,10 @@ import com.intellij.openapi.fileEditor.*;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.fileEditor.impl.EditorWithProviderComposite;
+import com.intellij.openapi.fileEditor.impl.EditorsSplitters;
 import com.intellij.openapi.fileEditor.impl.FileEditorManagerImpl;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.impl.IdeFrameImpl;
 import entity.AOIBounds;
 import org.bytedeco.javacpp.annotation.Virtual;
 import trackers.TrackerInfo.IDETrackerInfo;
@@ -33,19 +35,14 @@ public class IDEFileEditorManagerListenerGenerator {
                 }
             }
 
-            public EditorWindow getEditorWindow(FileEditorManagerImpl fileEditorManager, Editor editor, VirtualFile file) {
-                EditorWindow[] windows = fileEditorManager.getWindows();
-                for (EditorWindow window: windows) {
-                    EditorWithProviderComposite composite = window.getSelectedEditor();
-                    FileEditor fileEditor = composite.getSelectedEditor();;
-                    if (fileEditor instanceof TextEditor) {
-                        Editor comparEditor = ((TextEditor) fileEditor).getEditor();
-                        if (composite != null && comparEditor == editor) {
-                            return window;
-                        }
+            private static void traverse(Component component) {
+                System.out.println("Component: " + component.getClass().getName());
+
+                if (component instanceof Container) {
+                    for (Component child : ((Container) component).getComponents()) {
+                        traverse(child);
                     }
                 }
-                return null;
             }
 
             // TODO: eventually manage state of filepath, visiblearea, and editors (in IDETrackerInfo) with this
@@ -53,45 +50,26 @@ public class IDEFileEditorManagerListenerGenerator {
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileOpened");
                 Editor editor = source.getSelectedTextEditor();
-                IDETrackerInfo.EditorTrackingInfo val = new IDETrackerInfo.EditorTrackingInfo();
-                assert editor != null;
-                Component editorComponent = editor.getComponent();
-                Point location = editorComponent.getLocationOnScreen();
-                Dimension bounds = editorComponent.getSize();
-                AOIBounds loc = new AOIBounds(location.x, location.y, bounds.width, bounds.height, "Editor");
-                String filePath = file.getPath();
-                val.filePath = filePath;
-                val.editor = editor;
-                val.bounds = loc;
-                EditorWindow editorWindow = getEditorWindow((FileEditorManagerImpl) source, editor, file);
-                // add to file --> window map
-                java.util.List<EditorWindow> editorWindowList = new ArrayList<>();
-                editorWindowList.add(editorWindow);
-                if (info.fileEditorWindows.containsKey(filePath)) {
-                    // add to list -- shame on you for opening the same file in a different window
-                    editorWindowList= info.fileEditorWindows.get(filePath);
-                    editorWindowList.add(editorWindow);
+//                EditorsSplitters splitters = ((FileEditorManagerImpl) source).getSplitters();
+//                for (EditorWindow window : splitters.getWindows()) {
+//
+//                }
+                Window[] allWindows = Window.getWindows();
+                for (Window w : allWindows) {
+                    if (w.isShowing()) {
+                        if (w instanceof IdeFrameImpl) {
+                            traverse(w);
+                        }
+                    }
                 }
-                info.fileEditorWindows.put(filePath, editorWindowList);
-                info.visibleEditors.put(editorWindow, val); // I think this might resize a bunch so it might have different bounds
-                System.out.println("we put an editor into our editor map");
+                // Super helpful lol: Window: com.intellij.openapi.wm.impl.IdeFrameImpl, title: blank
+
             }
 
             @Override
             public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileClosed");
-                System.out.println("Editor closed: " + file.getPath());
-                // if editor window no longer visible, delete from map. need to look through
-                // lookup in file --> editorwindow map
-                java.util.List<EditorWindow> editorWindowList = info.fileEditorWindows.get(file.getPath());
-                // collect no longer visible editorwindows
-                java.util.List<EditorWindow> closedWindows = new ArrayList<>();
-                for (EditorWindow window : editorWindowList) {
-                    // if window is not visible, put in closedWindows list
-//                    if (window.getComponent().isShowing()) {
-//
-//                    }
-                }
+
             }
 
             @Override
