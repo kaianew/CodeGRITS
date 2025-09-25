@@ -49,20 +49,17 @@ public class IDEFileEditorManagerListenerGenerator {
             @Override
             public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 handleFile(source, file, "fileOpened");
-                Editor editor = source.getSelectedTextEditor();
-//                EditorsSplitters splitters = ((FileEditorManagerImpl) source).getSplitters();
-//                for (EditorWindow window : splitters.getWindows()) {
-//
-//                }
-                Window[] allWindows = Window.getWindows();
-                for (Window w : allWindows) {
-                    if (w.isShowing()) {
-                        if (w instanceof IdeFrameImpl) {
-                            traverse(w);
+//                Editor editor = source.getSelectedTextEditor();
+                EditorsSplitters splitters = ((FileEditorManagerImpl) source).getSplitters();
+                for (EditorWindow window : splitters.getWindows()) {
+                    EditorWithProviderComposite composite = (EditorWithProviderComposite) window.getSelectedEditor();
+                    for (FileEditor fe : composite.getEditors()) {
+                        if (fe instanceof TextEditor) {
+                            Editor editor = ((TextEditor) fe).getEditor();
+                            System.out.println("Unwrapped text editor: " + editor);
                         }
                     }
                 }
-                // Super helpful lol: Window: com.intellij.openapi.wm.impl.IdeFrameImpl, title: blank
 
             }
 
