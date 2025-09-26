@@ -53,10 +53,17 @@ public class IDEFileEditorManagerListenerGenerator {
                 EditorsSplitters splitters = ((FileEditorManagerImpl) source).getSplitters();
                 for (EditorWindow window : splitters.getWindows()) {
                     EditorWithProviderComposite composite = (EditorWithProviderComposite) window.getSelectedEditor();
+                    int count = 0;
                     for (FileEditor fe : composite.getEditors()) {
+                        count++;
                         if (fe instanceof TextEditor) {
                             Editor editor = ((TextEditor) fe).getEditor();
                             System.out.println("Unwrapped text editor: " + editor);
+                            // make all the AOIBounds and check to see if a hypothetical gaze is in them
+                            Rectangle visibleArea = editor.getScrollingModel().getVisibleArea();
+                            Point editorLocation = editor.getContentComponent().getLocationOnScreen();
+                            String filePath = editor.getVirtualFile().getPath();
+                            String AOIString = "Editor" + count;
                         }
                     }
                 }

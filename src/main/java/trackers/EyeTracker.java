@@ -247,11 +247,6 @@ public class EyeTracker implements Disposable {
             int relativeY = gazePoint.eyeY - editorLocation.y;
             if ((relativeX - visibleArea.x) >= 0 && (relativeY - visibleArea.y) >= 0
                     && (relativeX - visibleArea.x) <= visibleArea.width && (relativeY - visibleArea.y) <= visibleArea.height) {
-                // FIXME KAIA: claire pleads that you check this; I inverted the if condition
-                // to make it so that this SHOULD be true if the AOI IS the editor
-                // (previously it was a check if the AOI was NOT the editor).
-                // I'd be happier if there were a way to use the "inBounds" helper function I made, above
-                // but the types don't match up and I'm a little bit too lazy to figure out how to make them match up.
                 gaze.setAttribute("AOI", "Editor");
                 Point relativePoint = new Point(relativeX, relativeY);
 
@@ -271,7 +266,6 @@ public class EyeTracker implements Disposable {
                         Element aSTStructure = getASTStructureElement(psiElement);
                         gaze.appendChild(aSTStructure);
                         lastElement = psiElement;
-//                System.out.println(gaze.getAttribute("timestamp") + " " + System.currentTimeMillis());
                         handleElement(gaze);
                     }
                 }));
