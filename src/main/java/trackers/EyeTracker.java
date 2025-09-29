@@ -5,6 +5,11 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.editor.event.EditorFactoryEvent;
 import com.intellij.openapi.editor.event.EditorFactoryListener;
+import com.intellij.openapi.fileEditor.*;
+import com.intellij.openapi.fileEditor.impl.EditorWindow;
+import com.intellij.openapi.fileEditor.impl.EditorWithProviderComposite;
+import com.intellij.openapi.fileEditor.impl.EditorsSplitters;
+import com.intellij.openapi.fileEditor.impl.FileEditorManagerImpl;
 import com.intellij.util.ui.update.Activatable;
 import com.intellij.util.ui.update.UiNotifyConnector;
 import entity.AOIBounds;
@@ -15,9 +20,6 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.event.VisibleAreaListener;
-import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
-import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
@@ -56,7 +58,9 @@ public class EyeTracker implements Disposable {
      */
     double sampleFrequency;
     PsiDocumentManager psiDocumentManager;
-    public Editor editor;
+
+    FileEditorManagerImpl source;
+
     /**
      * This variable is the XML document for storing the eye tracking data.
      */
@@ -66,9 +70,8 @@ public class EyeTracker implements Disposable {
      * This variable indicates whether the tracking is started.
      */
     double screenWidth, screenHeight;
-    String projectPath = "", filePath = "";
+    String projectPath = "";
     PsiElement lastElement = null;
-    Rectangle visibleArea = null;
     Process pythonProcess;
     Thread pythonOutputThread;
     String pythonInterpreter = "";
@@ -122,11 +125,6 @@ public class EyeTracker implements Disposable {
 //    }
 
     /**
-     * The listener for the visible area used for filtering the eye tracking data.
-     */
-    VisibleAreaListener visibleAreaListener = e -> visibleArea = e.getNewRectangle();
-
-    /**
      * This method starts the eye tracking.
      *
      * @param project The project.
@@ -135,15 +133,7 @@ public class EyeTracker implements Disposable {
     public void startTracking(Project project) throws IOException {
         info.startTracking();
         psiDocumentManager = PsiDocumentManager.getInstance(project);
-        editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
-        if (editor != null) {
-            editor.getScrollingModel().addVisibleAreaListener(visibleAreaListener);
-            visibleArea = editor.getScrollingModel().getVisibleArea();
-        }
-        VirtualFile[] virtualFiles = FileEditorManager.getInstance(project).getSelectedFiles();
-        if (virtualFiles.length > 0) {
-            filePath = virtualFiles[0].getPath();
-        }
+        source = (FileEditorManagerImpl) FileEditorManager.getInstance(project);
         Element setting = xmldoc.getParentElement("setting");
         if (deviceIndex == 0) {
             setting.setAttribute("eye_tracker", "Mouse");
@@ -226,9 +216,10 @@ public class EyeTracker implements Disposable {
     public void processRawData(String message) {
         if (!info.isTracking()) return;
         Element gaze = getRawGazeElement(message);
+        LOG.info("We are processing raw data");
         EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
         if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
-                                // complain that gazePoint might be null after this point.
+            // complain that gazePoint might be null after this point.
             gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
             return;
         }
@@ -241,35 +232,56 @@ public class EyeTracker implements Disposable {
         }
 
         try {
-            // TODO: make sure the correct editor is here --> look it up in the editor map
-            Point editorLocation = editor.getContentComponent().getLocationOnScreen();
-            int relativeX = gazePoint.eyeX - editorLocation.x;
-            int relativeY = gazePoint.eyeY - editorLocation.y;
-            if ((relativeX - visibleArea.x) >= 0 && (relativeY - visibleArea.y) >= 0
-                    && (relativeX - visibleArea.x) <= visibleArea.width && (relativeY - visibleArea.y) <= visibleArea.height) {
-                gaze.setAttribute("AOI", "Editor");
-                Point relativePoint = new Point(relativeX, relativeY);
+            LOG.info("Getting the splitters.");
+            EditorsSplitters splitters = ((FileEditorManagerImpl) source).getSplitters();
+            LOG.info("Splitters = " + splitters.toString());
+            int count = 0;
+            for (EditorWindow window : splitters.getWindows()) {
+                if (window.isShowing()) {
+                    EditorWithProviderComposite composite = (EditorWithProviderComposite) window.getSelectedEditor();
+                    for (FileEditor fe : composite.getEditors()) {
+                        count++;
+                        if (fe instanceof TextEditor) {
+                            LOG.info("Text editor");
+                            Editor editor = ((TextEditor) fe).getEditor();
+                            System.out.println("Unwrapped text editor: " + editor);
+                            // make all the AOIBounds and check to see if a hypothetical gaze is in them
+                            Rectangle visibleArea = editor.getScrollingModel().getVisibleArea();
+                            Point editorLocation = editor.getContentComponent().getLocationOnScreen();
+                            String filePath = editor.getVirtualFile().getPath();
+                            String AOIString = "Editor" + count;
+                            int relativeX = gazePoint.eyeX - editorLocation.x;
+                            int relativeY = gazePoint.eyeY - editorLocation.y;
+                            if ((relativeX - visibleArea.x) >= 0 && (relativeY - visibleArea.y) >= 0
+                                    && (relativeX - visibleArea.x) <= visibleArea.width && (relativeY - visibleArea.y) <= visibleArea.height) {
+                                LOG.info("We are in the editor actively PB");
+                                gaze.setAttribute("AOI", AOIString);
+                                Point relativePoint = new Point(relativeX, relativeY);
 
-                EventQueue.invokeLater(new Thread(() -> {
-                    PsiFile psiFile = psiDocumentManager.getPsiFile(editor.getDocument());
-                    LogicalPosition logicalPosition = editor.xyToLogicalPosition(relativePoint);
-                    if (psiFile != null) {
-                        int offset = editor.logicalPositionToOffset(logicalPosition);
-                        PsiElement psiElement = psiFile.findElementAt(offset);
-                        Element location = xmldoc.createElementAtRoot("location");
-                        location.setAttribute("x", String.valueOf(gazePoint.eyeX));
-                        location.setAttribute("y", String.valueOf(gazePoint.eyeY));
-                        location.setAttribute("line", String.valueOf(logicalPosition.line));
-                        location.setAttribute("column", String.valueOf(logicalPosition.column));
-                        location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
-                        gaze.appendChild(location);
-                        Element aSTStructure = getASTStructureElement(psiElement);
-                        gaze.appendChild(aSTStructure);
-                        lastElement = psiElement;
-                        handleElement(gaze);
+                                EventQueue.invokeLater(new Thread(() -> {
+                                    PsiFile psiFile = psiDocumentManager.getPsiFile(editor.getDocument());
+                                    LogicalPosition logicalPosition = editor.xyToLogicalPosition(relativePoint);
+                                    if (psiFile != null) {
+                                        int offset = editor.logicalPositionToOffset(logicalPosition);
+                                        PsiElement psiElement = psiFile.findElementAt(offset);
+                                        Element location = xmldoc.createElementAtRoot("location");
+                                        location.setAttribute("x", String.valueOf(gazePoint.eyeX));
+                                        location.setAttribute("y", String.valueOf(gazePoint.eyeY));
+                                        location.setAttribute("line", String.valueOf(logicalPosition.line));
+                                        location.setAttribute("column", String.valueOf(logicalPosition.column));
+                                        location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
+                                        gaze.appendChild(location);
+                                        Element aSTStructure = getASTStructureElement(psiElement, editor);
+                                        gaze.appendChild(aSTStructure);
+                                        lastElement = psiElement;
+                                        handleElement(gaze);
+                                    }
+                                }));
+                                return;
+                            }
+                        }
                     }
-                }));
-                return;
+                }
             }
         } catch (IllegalComponentStateException | NullPointerException e) {
             gaze.setAttribute("remark", "Fail | No Editor");
@@ -290,6 +302,7 @@ public class EyeTracker implements Disposable {
                         () -> gaze.setAttribute("AOI", "OOB")
                 );
     }
+
 
     /**
      * This method builds the Python process and redirects the output to the {@code pythonOutputThread} to process.
@@ -385,7 +398,7 @@ public class EyeTracker implements Disposable {
      * @param psiElement The PSI element.
      * @return The AST structure element.
      */
-    public Element getASTStructureElement(PsiElement psiElement) {
+    public Element getASTStructureElement(PsiElement psiElement, Editor editor) {
         String token = "", type = "";
         Element aSTStructure = xmldoc.createElementAtRoot("ast_structure");
         if (psiElement != null && psiElement.getTextLength() > 0) {
