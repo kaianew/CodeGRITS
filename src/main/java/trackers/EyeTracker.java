@@ -26,6 +26,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import entity.XMLDocumentHandler;
+import kotlinx.coroutines.repackaged.net.bytebuddy.pool.TypePool;
 import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -247,14 +248,16 @@ public class EyeTracker implements Disposable {
                             // make all the AOIBounds and check to see if a hypothetical gaze is in them
                             final Rectangle[] visibleAreaHolder = new Rectangle[1];
                             final Point[] editorLocationHolder = new Point[1];
-                            if (!editor.getContentComponent().isShowing()) {
-                                System.out.println("We continued safely!");
+                            try {
+                                ApplicationManager.getApplication().invokeAndWait(() -> {
+                                    visibleAreaHolder[0] = editor.getScrollingModel().getVisibleArea();
+                                    editorLocationHolder[0] = editor.getContentComponent().getLocationOnScreen();
+                                });
+                            }
+                            catch (IllegalComponentStateException e) {
+                                System.out.println("The editor is not on screen.");
                                 continue;
                             }
-                            ApplicationManager.getApplication().invokeAndWait(() -> {
-                                visibleAreaHolder[0] = editor.getScrollingModel().getVisibleArea();
-                                editorLocationHolder[0] = editor.getContentComponent().getLocationOnScreen();
-                            });
                             Rectangle visibleArea = visibleAreaHolder[0];
                             Point editorLocation = editorLocationHolder[0];
                             String filePath = editor.getVirtualFile().getPath();
