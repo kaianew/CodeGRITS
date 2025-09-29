@@ -194,6 +194,9 @@ public class EyeTracker implements Disposable {
         String rightGazePointX = rightInfo.split(", ")[0];
         String rightGazePointY = rightInfo.split(", ")[1];
 
+        // TODO: Kaia, set a class tuple (boolean, enum) to whether or not the last gaze was recorded out of the trackbox.
+        // enum should be in which direction. in this case, create a popup on screen that says to move forward/backward/w.e.
+
         if (leftGazePointX.equals("nan") || leftGazePointY.equals("nan") || rightGazePointX.equals("nan") || rightGazePointY.equals("nan")) {
             return null;
         }
@@ -350,8 +353,13 @@ public class EyeTracker implements Disposable {
         String rightGazeValidity = rightInfo.split(", ")[2];
         String rightPupilDiameter = rightInfo.split(", ")[3];
         String rightPupilValidity = rightInfo.split(", ")[4];
-        String leftTrackbox = rightInfo.split(", ")[5];
-        String rightTrackbox = rightInfo.split(", ")[6];
+        // This is new, should match with the new x/y/z trackcoords to track when to activate nanny cam
+        String leftTrackX = rightInfo.split(", ")[5];
+        String rightTrackX = rightInfo.split(", ")[6];
+        String leftTrackY = rightInfo.split(", ")[7];
+        String rightTrackY = rightInfo.split(", ")[8];
+        String leftTrackZ = rightInfo.split(", ")[9];
+        String rightTrackZ = rightInfo.split(", ")[10];
 
         Element rawGaze = xmldoc.createElementAtNamedParent("gaze", "gazes");
         Element leftEye = xmldoc.createElementAtRoot("left_eye");
@@ -367,14 +375,18 @@ public class EyeTracker implements Disposable {
         leftEye.setAttribute("gaze_validity", leftGazeValidity);
         leftEye.setAttribute("pupil_diameter", leftPupilDiameter);
         leftEye.setAttribute("pupil_validity", leftPupilValidity);
-        leftEye.setAttribute("gaze_point_z", leftTrackbox);
+        leftEye.setAttribute("track_x", leftTrackX);
+        leftEye.setAttribute("track_y", leftTrackY);
+        leftEye.setAttribute("track_z", leftTrackZ);
 
         rightEye.setAttribute("gaze_point_x", rightGazePointX);
         rightEye.setAttribute("gaze_point_y", rightGazePointY);
         rightEye.setAttribute("gaze_validity", rightGazeValidity);
         rightEye.setAttribute("pupil_diameter", rightPupilDiameter);
         rightEye.setAttribute("pupil_validity", rightPupilValidity);
-        rightEye.setAttribute("gaze_point_z", rightTrackbox);
+        rightEye.setAttribute("track_x", rightTrackX);
+        rightEye.setAttribute("track_y", rightTrackY);
+        rightEye.setAttribute("track_z", rightTrackZ);
 
         return rawGaze;
     }
@@ -457,7 +469,7 @@ public class EyeTracker implements Disposable {
                             
                             
                 def gaze_data_callback(gaze_data):
-                    message = '{}; {}, {}, {}, {}, {}; {}, {}, {}, {}, {}, {}, {}'.format(
+                    message = '{}; {}, {}, {}, {}, {}; {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}'.format(
                         round(time.time() * 1000),
                         gaze_data['left_gaze_point_on_display_area'][0],
                         gaze_data['left_gaze_point_on_display_area'][1],
@@ -469,6 +481,10 @@ public class EyeTracker implements Disposable {
                         gaze_data['right_gaze_point_validity'],
                         gaze_data['right_pupil_diameter'],
                         gaze_data['right_pupil_validity'],
+                        gaze_data['left_gaze_origin_in_trackbox_coordinate_system'][0],
+                        gaze_data['right_gaze_origin_in_trackbox_coordinate_system'][0],
+                        gaze_data['left_gaze_origin_in_trackbox_coordinate_system'][1],
+                        gaze_data['right_gaze_origin_in_trackbox_coordinate_system'][1],
                         gaze_data['left_gaze_origin_in_trackbox_coordinate_system'][2],
                         gaze_data['right_gaze_origin_in_trackbox_coordinate_system'][2]
                     )

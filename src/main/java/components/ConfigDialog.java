@@ -67,15 +67,6 @@ public class ConfigDialog extends DialogWrapper {
         setAutoAdjustable(true);
         setResizable(false);
         Config config = new Config();
-        // For now, delete config json when the config dialog is opened and start from scratch
-//        Path earlierConfig = Paths.get(PathManager.getPluginsPath() + "/config.json");
-//        try {
-//            Files.delete(earlierConfig);
-//            LOG.info("deleted the earlier config");
-//        }
-//        catch (Exception e) {
-//            LOG.info("Failed to delete the earlier config");
-//        }
         if (config.configExists()) {
             config.loadFromJson();
             List<Boolean> selected = config.getCheckBoxes();
