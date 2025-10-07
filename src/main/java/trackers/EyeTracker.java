@@ -246,20 +246,20 @@ public class EyeTracker implements Disposable {
                             Editor editor = ((TextEditor) fe).getEditor();
                             System.out.println("Unwrapping text editor: " + editor);
                             // make all the AOIBounds and check to see if a hypothetical gaze is in them
-                            final Rectangle[] visibleAreaHolder = new Rectangle[1];
-                            final Point[] editorLocationHolder = new Point[1];
-                            try {
-                                ApplicationManager.getApplication().invokeAndWait(() -> {
-                                    visibleAreaHolder[0] = editor.getScrollingModel().getVisibleArea();
-                                    editorLocationHolder[0] = editor.getContentComponent().getLocationOnScreen();
-                                });
+
+                            Rectangle visibleArea = editor.getScrollingModel().getVisibleArea();
+                            Point editorLocation;
+                            // the editor throws an error if you get its component and it's not showing
+                            // the visible area will just be a null or zero-ed rectangle if not showing
+                            if (editor.getContentComponent().isShowing() || visibleArea.width <= 0 || visibleArea.height <= 0) {
+                                editorLocation = editor.getContentComponent().getLocationOnScreen();
                             }
-                            catch (IllegalComponentStateException e) {
+                            else {
                                 System.out.println("The editor is not on screen.");
                                 continue;
                             }
-                            Rectangle visibleArea = visibleAreaHolder[0];
-                            Point editorLocation = editorLocationHolder[0];
+
+
                             String filePath = editor.getVirtualFile().getPath();
                             String AOIString = "Editor" + count;
                             int relativeX = gazePoint.eyeX - editorLocation.x;
