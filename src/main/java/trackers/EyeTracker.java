@@ -248,14 +248,22 @@ public class EyeTracker implements Disposable {
                             // make all the AOIBounds and check to see if a hypothetical gaze is in them
                             final Rectangle[] visibleAreaHolder = new Rectangle[1];
                             final Point[] editorLocationHolder = new Point[1];
+                            final Boolean[] foundObject = new Boolean[1];
+                            foundObject[0] = false;
                             try {
                                 ApplicationManager.getApplication().invokeAndWait(() -> {
                                     visibleAreaHolder[0] = editor.getScrollingModel().getVisibleArea();
-                                    editorLocationHolder[0] = editor.getContentComponent().getLocationOnScreen();
+                                    if (editor.getContentComponent().isShowing()) {
+                                        editorLocationHolder[0] = editor.getContentComponent().getLocationOnScreen();
+                                        foundObject[0] = true;
+                                    }
                                 });
                             }
                             catch (IllegalComponentStateException e) {
                                 System.out.println("The editor is not on screen.");
+                                continue;
+                            }
+                            if (!foundObject[0]) {
                                 continue;
                             }
                             Rectangle visibleArea = visibleAreaHolder[0];
