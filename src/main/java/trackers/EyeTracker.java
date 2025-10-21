@@ -218,109 +218,109 @@ public class EyeTracker implements Disposable {
         if (!info.isTracking()) return;
         Element gaze = getRawGazeElement(message);
         LOG.info("We are processing raw data");
-//        EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
-//        if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
-//            // complain that gazePoint might be null after this point.
-//            gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
-//            return;
-//        }
-//
-//        // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
-//        AOIBounds popup = info.AOIMap.get("SearchEverywhere");
-//        if ((popup != null) && inBounds(popup, gazePoint)) {
-//            gaze.setAttribute("AOI", "SearchEverywhere");
-//            return;
-//        }
-//
-//        try {
-//            LOG.info("Getting the splitters.");
-//            EditorsSplitters splitters = ((FileEditorManagerImpl) source).getSplitters();
-//            LOG.info("Splitters = " + splitters.toString());
-//            int count = 0;
-//            for (EditorWindow window : splitters.getWindows()) {
-//                if (window.isShowing()) {
-//                    EditorWithProviderComposite composite = (EditorWithProviderComposite) window.getSelectedEditor();
-//                    for (FileEditor fe : composite.getEditors()) {
-//                        count++;
-//                        if (fe instanceof TextEditor) {
-//                            Editor editor = ((TextEditor) fe).getEditor();
-//                            System.out.println("Unwrapping text editor: " + editor);
-//                            // make all the AOIBounds and check to see if a hypothetical gaze is in them
-//                            final Rectangle[] visibleAreaHolder = new Rectangle[1];
-//                            final Point[] editorLocationHolder = new Point[1];
-//                            final Boolean[] foundObject = new Boolean[1];
-//                            foundObject[0] = false;
-//                            try {
-//                                ApplicationManager.getApplication().invokeAndWait(() -> {
-//                                    visibleAreaHolder[0] = editor.getScrollingModel().getVisibleArea();
-//                                    if (editor.getContentComponent().isShowing()) {
-//                                        editorLocationHolder[0] = editor.getContentComponent().getLocationOnScreen();
-//                                        foundObject[0] = true;
-//                                    }
-//                                });
-//                            }
-//                            catch (IllegalComponentStateException e) {
-//                                System.out.println("The editor is not on screen.");
-//                                continue;
-//                            }
-//                            if (!foundObject[0]) {
-//                                continue;
-//                            }
-//                            Rectangle visibleArea = visibleAreaHolder[0];
-//                            Point editorLocation = editorLocationHolder[0];
-//                            String filePath = editor.getVirtualFile().getPath();
-//                            String AOIString = "Editor" + count;
-//                            int relativeX = gazePoint.eyeX - editorLocation.x;
-//                            int relativeY = gazePoint.eyeY - editorLocation.y;
-//                            if ((relativeX - visibleArea.x) >= 0 && (relativeY - visibleArea.y) >= 0
-//                                    && (relativeX - visibleArea.x) <= visibleArea.width && (relativeY - visibleArea.y) <= visibleArea.height) {
-//                                LOG.info("We are in the editor actively PB");
-//                                gaze.setAttribute("AOI", AOIString);
-//                                Point relativePoint = new Point(relativeX, relativeY);
-//
-//                                EventQueue.invokeLater(new Thread(() -> {
-//                                    PsiFile psiFile = psiDocumentManager.getPsiFile(editor.getDocument());
-//                                    LogicalPosition logicalPosition = editor.xyToLogicalPosition(relativePoint);
-//                                    if (psiFile != null) {
-//                                        int offset = editor.logicalPositionToOffset(logicalPosition);
-//                                        PsiElement psiElement = psiFile.findElementAt(offset);
-//                                        Element location = xmldoc.createElementAtRoot("location");
-//                                        location.setAttribute("x", String.valueOf(gazePoint.eyeX));
-//                                        location.setAttribute("y", String.valueOf(gazePoint.eyeY));
-//                                        location.setAttribute("line", String.valueOf(logicalPosition.line));
-//                                        location.setAttribute("column", String.valueOf(logicalPosition.column));
-//                                        location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
-//                                        gaze.appendChild(location);
-//                                        Element aSTStructure = getASTStructureElement(psiElement, editor);
-//                                        gaze.appendChild(aSTStructure);
-//                                        lastElement = psiElement;
-//                                        handleElement(gaze);
-//                                    }
-//                                }));
-//                                return;
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        } catch (IllegalComponentStateException | NullPointerException e) {
-//            gaze.setAttribute("remark", "Fail | No Editor");
-//        }
-//        // the use of exception handling as control flow is kind of a bad practice
-//        // but CLG is struggling to come up with a better way to do it.
-//        // anyhoozles.  Execution would get here for one of two reasons: either the catch block immediately above
-//        // these comments triggered, because there is no editor
-//        // OR we didn't return on line 319, where we would have if the relative gaze is within the
-//        // active visible area. In that case, check the AOI map in case they're looking somewhere else.
-//
-//        // CLG can't help herself, demonstrating some fun with Streams...
-//        info.AOIMap.entrySet().stream()
-//                .filter(e -> inBounds(e.getValue(), gazePoint))
-//                .findFirst()
-//                .ifPresentOrElse(
-//                        e -> gaze.setAttribute("AOI", e.getKey()),
-//                        () -> gaze.setAttribute("AOI", "OOB")
-//                );
+        EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
+        if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
+            // complain that gazePoint might be null after this point.
+            gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
+            return;
+        }
+
+        // First, check to see if in the SearchEverywhere popup, which will overlay everything if it exists
+        AOIBounds popup = info.AOIMap.get("SearchEverywhere");
+        if ((popup != null) && inBounds(popup, gazePoint)) {
+            gaze.setAttribute("AOI", "SearchEverywhere");
+            return;
+        }
+
+        try {
+            LOG.info("Getting the splitters.");
+            EditorsSplitters splitters = ((FileEditorManagerImpl) source).getSplitters();
+            LOG.info("Splitters = " + splitters.toString());
+            int count = 0;
+            for (EditorWindow window : splitters.getWindows()) {
+                if (window.isShowing()) {
+                    EditorWithProviderComposite composite = (EditorWithProviderComposite) window.getSelectedEditor();
+                    for (FileEditor fe : composite.getEditors()) {
+                        count++;
+                        if (fe instanceof TextEditor) {
+                            Editor editor = ((TextEditor) fe).getEditor();
+                            System.out.println("Unwrapping text editor: " + editor);
+                            // make all the AOIBounds and check to see if a hypothetical gaze is in them
+                            final Rectangle[] visibleAreaHolder = new Rectangle[1];
+                            final Point[] editorLocationHolder = new Point[1];
+                            final Boolean[] foundObject = new Boolean[1];
+                            foundObject[0] = false;
+                            try {
+                                ApplicationManager.getApplication().invokeAndWait(() -> {
+                                    visibleAreaHolder[0] = editor.getScrollingModel().getVisibleArea();
+                                    if (editor.getContentComponent().isShowing()) {
+                                        editorLocationHolder[0] = editor.getContentComponent().getLocationOnScreen();
+                                        foundObject[0] = true;
+                                    }
+                                });
+                            }
+                            catch (IllegalComponentStateException e) {
+                                System.out.println("The editor is not on screen.");
+                                continue;
+                            }
+                            if (!foundObject[0]) {
+                                continue;
+                            }
+                            Rectangle visibleArea = visibleAreaHolder[0];
+                            Point editorLocation = editorLocationHolder[0];
+                            String filePath = editor.getVirtualFile().getPath();
+                            String AOIString = "Editor" + count;
+                            int relativeX = gazePoint.eyeX - editorLocation.x;
+                            int relativeY = gazePoint.eyeY - editorLocation.y;
+                            if ((relativeX - visibleArea.x) >= 0 && (relativeY - visibleArea.y) >= 0
+                                    && (relativeX - visibleArea.x) <= visibleArea.width && (relativeY - visibleArea.y) <= visibleArea.height) {
+                                LOG.info("We are in the editor actively PB");
+                                gaze.setAttribute("AOI", AOIString);
+                                Point relativePoint = new Point(relativeX, relativeY);
+
+                                EventQueue.invokeLater(new Thread(() -> {
+                                    PsiFile psiFile = psiDocumentManager.getPsiFile(editor.getDocument());
+                                    LogicalPosition logicalPosition = editor.xyToLogicalPosition(relativePoint);
+                                    if (psiFile != null) {
+                                        int offset = editor.logicalPositionToOffset(logicalPosition);
+                                        PsiElement psiElement = psiFile.findElementAt(offset);
+                                        Element location = xmldoc.createElementAtRoot("location");
+                                        location.setAttribute("x", String.valueOf(gazePoint.eyeX));
+                                        location.setAttribute("y", String.valueOf(gazePoint.eyeY));
+                                        location.setAttribute("line", String.valueOf(logicalPosition.line));
+                                        location.setAttribute("column", String.valueOf(logicalPosition.column));
+                                        location.setAttribute("path", RelativePathGetter.getRelativePath(filePath, projectPath));
+                                        gaze.appendChild(location);
+                                        Element aSTStructure = getASTStructureElement(psiElement, editor);
+                                        gaze.appendChild(aSTStructure);
+                                        lastElement = psiElement;
+                                        handleElement(gaze);
+                                    }
+                                }));
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IllegalComponentStateException | NullPointerException e) {
+            gaze.setAttribute("remark", "Fail | No Editor");
+        }
+        // the use of exception handling as control flow is kind of a bad practice
+        // but CLG is struggling to come up with a better way to do it.
+        // anyhoozles.  Execution would get here for one of two reasons: either the catch block immediately above
+        // these comments triggered, because there is no editor
+        // OR we didn't return on line 319, where we would have if the relative gaze is within the
+        // active visible area. In that case, check the AOI map in case they're looking somewhere else.
+
+        // CLG can't help herself, demonstrating some fun with Streams...
+        info.AOIMap.entrySet().stream()
+                .filter(e -> inBounds(e.getValue(), gazePoint))
+                .findFirst()
+                .ifPresentOrElse(
+                        e -> gaze.setAttribute("AOI", e.getKey()),
+                        () -> gaze.setAttribute("AOI", "OOB")
+                );
     }
 
 
@@ -506,7 +506,7 @@ public class EyeTracker implements Disposable {
                         gaze_data['right_pupil_validity'],
                         gaze_data['left_gaze_origin_in_trackbox_coordinate_system'][2],
                         gaze_data['right_gaze_origin_in_trackbox_coordinate_system'][2],
-                        round(gaze_data['device_timestamp'] / 1000)
+                        round(gaze_data['device_time_stamp'] / 1000)
                     )
                     print(message)
                     sys.stdout.flush()
