@@ -506,7 +506,7 @@ public class EyeTracker implements Disposable {
                         gaze_data['right_pupil_validity'],
                         gaze_data['left_gaze_origin_in_trackbox_coordinate_system'][2],
                         gaze_data['right_gaze_origin_in_trackbox_coordinate_system'][2],
-                        device_timestamp
+                        round(gaze_data['device_timestamp'] / 1000)
                     )
                     print(message)
                     sys.stdout.flush()
