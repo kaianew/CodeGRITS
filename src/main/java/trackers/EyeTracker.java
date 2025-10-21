@@ -516,16 +516,14 @@ public class EyeTracker implements Disposable {
                 my_eyetracker.set_gaze_output_frequency(freq)
                 my_eyetracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_data_callback, as_dictionary=True)
                 start_time = time.time()
+                
                 def set_timer_resolution(ms=2):
-                    “”"
-                    Requests a minimum timer resolution of `ms` milliseconds (default 2ms)
-                    using the Windows multimedia API timeBeginPeriod.
-                    “”"
-                    winmm = ctypes.WinDLL(‘winmm’)
+                    winmm = ctypes.WinDLL('winmm')
                     result = winmm.timeBeginPeriod(ms)
                     if result != 0:
-                        raise OSError(f”timeBeginPeriod({ms}) failed with error code {result}“)
-                set_timer_resolution(freq*2)
+                        raise OSError(f"timeBeginPeriod({ms}) failed with error code {result}")
+                
+                set_timer_resolution(2)
                 while time.time() - start_time <= math.inf:
                     continue
                 """;
