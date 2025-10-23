@@ -46,6 +46,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
@@ -350,7 +352,7 @@ public class EyeTracker implements Disposable {
             }
             processBuilder.redirectErrorStream(true);
             pythonProcess = processBuilder.start();
-
+            final ExecutorService pool = Executors.newFixedThreadPool(100);
             pythonOutputThread = new Thread(() -> {
                 try (InputStream inputStream = pythonProcess.getInputStream();
                      InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
@@ -361,8 +363,7 @@ public class EyeTracker implements Disposable {
                         final String final_line = line;
 //                        Thread rawDataThread = new Thread(() -> { processRawData(final_line);});
 //                        rawDataThread.start();
-                        Thread emptyThread = new Thread(() -> {});
-                        emptyThread.start();
+                        pool.submit(() -> {processRawData(final_line);});
                         long end_time = System.nanoTime();
                         long total_time = end_time - start_time;
                         if (total_time > 300) {
@@ -513,12 +514,21 @@ public class EyeTracker implements Disposable {
                 import sys
                 import math
                 import ctypes
+                import threading
                             
                 def set_timer_resolution(ms=2):
                     winmm = ctypes.WinDLL('winmm')
                     result = winmm.timeBeginPeriod(ms)
-                               
+                
+                count = 0
+                thread_id = threading.get_ident()
+                callback_thread_id = threading.get_ident()              
                 def gaze_data_callback(gaze_data):
+                    if (callback_thread_id != threading.get_ident()):
+                        return
+                    if (threading.get_ident() != thread_id):
+                        return
+                    callback_thread_id = threading.get_ident()
                     message = '{}; {}, {}, {}, {}, {}; {}, {}, {}, {}, {}, {}, {}, {}'.format(
                         round(time.time() * 1000),
                         gaze_data['left_gaze_point_on_display_area'][0],
@@ -536,7 +546,10 @@ public class EyeTracker implements Disposable {
                         round(gaze_data['device_time_stamp'] / 1000)
                     )
                     print(message)
-                    sys.stdout.flush()
+                    count += 1
+                    if count == 10:
+                        sys.stdout.flush()
+                        count = 0
                             
                 found_eyetrackers = tr.find_all_eyetrackers()
                 my_eyetracker = found_eyetrackers[0]
