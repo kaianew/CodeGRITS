@@ -82,6 +82,8 @@ public class EyeTracker implements Disposable {
     // This enum determines which eye is dominant, which affects the x,y calculation
     EyeEnum dominantEye;
 
+    Element recentGaze;
+
     private static final Logger LOG = Logger.getInstance(EyeTracker.class);
 
     /**
@@ -216,8 +218,16 @@ public class EyeTracker implements Disposable {
      */
     public void processRawData(String message) {
         if (!info.isTracking()) return;
+        long start_time = System.nanoTime();
         Element gaze = getRawGazeElement(message);
-        LOG.info("We are processing raw data");
+        if (recentGaze != null) {
+            int distance = Integer.parseInt(gaze.getAttribute("device_timestamp")) - Integer.parseInt(recentGaze.getAttribute("device_timestamp"));
+            if (distance > 4) {
+                Element tooFar = xmldoc.createElementAtRoot("distance");
+                tooFar.setAttribute("distance", ((Integer) distance).toString());
+                gaze.appendChild(tooFar);
+            }
+        }
         EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
         if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
             // complain that gazePoint might be null after this point.
@@ -233,9 +243,7 @@ public class EyeTracker implements Disposable {
         }
 
         try {
-            LOG.info("Getting the splitters.");
             EditorsSplitters splitters = ((FileEditorManagerImpl) source).getSplitters();
-            LOG.info("Splitters = " + splitters.toString());
             int count = 0;
             for (EditorWindow window : splitters.getWindows()) {
                 if (window.isShowing()) {
@@ -244,7 +252,7 @@ public class EyeTracker implements Disposable {
                         count++;
                         if (fe instanceof TextEditor) {
                             Editor editor = ((TextEditor) fe).getEditor();
-                            System.out.println("Unwrapping text editor: " + editor);
+//                            System.out.println("Unwrapping text editor: " + editor);
                             // make all the AOIBounds and check to see if a hypothetical gaze is in them
                             final Rectangle[] visibleAreaHolder = new Rectangle[1];
                             final Point[] editorLocationHolder = new Point[1];
@@ -274,7 +282,6 @@ public class EyeTracker implements Disposable {
                             int relativeY = gazePoint.eyeY - editorLocation.y;
                             if ((relativeX - visibleArea.x) >= 0 && (relativeY - visibleArea.y) >= 0
                                     && (relativeX - visibleArea.x) <= visibleArea.width && (relativeY - visibleArea.y) <= visibleArea.height) {
-                                LOG.info("We are in the editor actively PB");
                                 gaze.setAttribute("AOI", AOIString);
                                 Point relativePoint = new Point(relativeX, relativeY);
 
@@ -321,6 +328,12 @@ public class EyeTracker implements Disposable {
                         e -> gaze.setAttribute("AOI", e.getKey()),
                         () -> gaze.setAttribute("AOI", "OOB")
                 );
+        recentGaze = gaze;
+        long end_time = System.nanoTime();
+        long total_time = end_time - start_time;
+        if (total_time > 4000) {
+            LOG.info("TOO LONG slow it down" + total_time);
+        }
     }
 
 
@@ -344,7 +357,17 @@ public class EyeTracker implements Disposable {
                      BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
                     String line;
                     while ((line = bufferedReader.readLine()) != null) {
-                        processRawData(line);
+                        long start_time = System.nanoTime();
+                        final String final_line = line;
+//                        Thread rawDataThread = new Thread(() -> { processRawData(final_line);});
+//                        rawDataThread.start();
+                        Thread emptyThread = new Thread(() -> {});
+                        emptyThread.start();
+                        long end_time = System.nanoTime();
+                        long total_time = end_time - start_time;
+                        if (total_time > 300) {
+                            LOG.info("Distinguishably slow Python " + total_time);
+                        }
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -489,8 +512,12 @@ public class EyeTracker implements Disposable {
                 import time
                 import sys
                 import math
+                import ctypes
                             
-                            
+                def set_timer_resolution(ms=2):
+                    winmm = ctypes.WinDLL('winmm')
+                    result = winmm.timeBeginPeriod(ms)
+                               
                 def gaze_data_callback(gaze_data):
                     message = '{}; {}, {}, {}, {}, {}; {}, {}, {}, {}, {}, {}, {}, {}'.format(
                         round(time.time() * 1000),
@@ -516,6 +543,8 @@ public class EyeTracker implements Disposable {
                 my_eyetracker.set_gaze_output_frequency(freq)
                 my_eyetracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_data_callback, as_dictionary=True)
                 start_time = time.time()
+                
+                set_timer_resolution(2)
                 while time.time() - start_time <= math.inf:
                     continue
                 """;
