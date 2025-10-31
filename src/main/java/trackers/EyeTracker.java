@@ -339,7 +339,7 @@ public class EyeTracker implements Disposable {
             }
             processBuilder.redirectErrorStream(true);
             pythonProcess = processBuilder.start();
-            final ExecutorService pool = Executors.newFixedThreadPool(100);
+//            final ExecutorService pool = Executors.newFixedThreadPool(100);
             pythonOutputThread = new Thread(() -> {
                 try (InputStream inputStream = pythonProcess.getInputStream();
                      InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
@@ -358,6 +358,13 @@ public class EyeTracker implements Disposable {
                     message = gazeMessages.poll();
                     if (message != null) {
                         processRawData(message);
+                    }
+                    else {
+                        try {
+                            Thread.sleep(4);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
                 }
             });
