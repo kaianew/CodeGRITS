@@ -42,9 +42,6 @@ public class IDEActionListenerGenerator {
                         "event", event)
                 );
                 xmldoc.createElementTimestamp("popup", "popups", passedAttrs);
-
-                LOG.info("we are recording popup bounds in the map");
-                LOG.info(popupId);
                 AOIBounds bounds = new AOIBounds(loc.x, loc.y, size.width, size.height, popupId);
                 info.AOIMap.put(popupId, bounds);
 
@@ -97,7 +94,6 @@ public class IDEActionListenerGenerator {
                                 try {
                                     balloonField = manager.getClass().getDeclaredField("myBalloon");
                                 } catch (NoSuchFieldException e) {
-                                    LOG.info("No myBalloon field in the SearchEverywhereManager.");
                                     throw new RuntimeException(e);
                                 }
                                 balloonField.setAccessible(true);
@@ -125,7 +121,6 @@ public class IDEActionListenerGenerator {
                                     }
                                 });
                             }
-                            LOG.info("Didn't find the SearchEverywhere window yet.");
                         });
                         timer.start();
                     }

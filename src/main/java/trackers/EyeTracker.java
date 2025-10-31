@@ -46,9 +46,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.concurrent.*;
 
 /**
  * This class is the eye tracker.
@@ -63,6 +65,7 @@ public class EyeTracker implements Disposable {
     PsiDocumentManager psiDocumentManager;
 
     FileEditorManagerImpl source;
+    ConcurrentLinkedQueue<String> gazeMessages;
 
     /**
      * This variable is the XML document for storing the eye tracking data.
@@ -83,8 +86,6 @@ public class EyeTracker implements Disposable {
     int deviceIndex = 0;
     // This enum determines which eye is dominant, which affects the x,y calculation
     EyeEnum dominantEye;
-
-    Element recentGaze;
 
     private static final Logger LOG = Logger.getInstance(EyeTracker.class);
 
@@ -137,6 +138,7 @@ public class EyeTracker implements Disposable {
      */
     public void startTracking(Project project) throws IOException {
         info.startTracking();
+        gazeMessages = new ConcurrentLinkedQueue<>();
         psiDocumentManager = PsiDocumentManager.getInstance(project);
         source = (FileEditorManagerImpl) FileEditorManager.getInstance(project);
         Element setting = xmldoc.getParentElement("setting");
@@ -220,16 +222,7 @@ public class EyeTracker implements Disposable {
      */
     public void processRawData(String message) {
         if (!info.isTracking()) return;
-        long start_time = System.nanoTime();
         Element gaze = getRawGazeElement(message);
-        if (recentGaze != null) {
-            int distance = Integer.parseInt(gaze.getAttribute("device_timestamp")) - Integer.parseInt(recentGaze.getAttribute("device_timestamp"));
-            if (distance > 4) {
-                Element tooFar = xmldoc.createElementAtRoot("distance");
-                tooFar.setAttribute("distance", ((Integer) distance).toString());
-                gaze.appendChild(tooFar);
-            }
-        }
         EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
         if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
             // complain that gazePoint might be null after this point.
@@ -330,12 +323,6 @@ public class EyeTracker implements Disposable {
                         e -> gaze.setAttribute("AOI", e.getKey()),
                         () -> gaze.setAttribute("AOI", "OOB")
                 );
-        recentGaze = gaze;
-        long end_time = System.nanoTime();
-        long total_time = end_time - start_time;
-        if (total_time > 4000) {
-            LOG.info("TOO LONG slow it down" + total_time);
-        }
     }
 
 
@@ -359,23 +346,23 @@ public class EyeTracker implements Disposable {
                      BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
                     String line;
                     while ((line = bufferedReader.readLine()) != null) {
-                        long start_time = System.nanoTime();
-                        final String final_line = line;
-//                        Thread rawDataThread = new Thread(() -> { processRawData(final_line);});
-//                        rawDataThread.start();
-                        pool.submit(() -> {processRawData(final_line);});
-                        long end_time = System.nanoTime();
-                        long total_time = end_time - start_time;
-                        if (total_time > 300) {
-                            LOG.info("Distinguishably slow Python " + total_time);
-                        }
+                        gazeMessages.add(line);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             });
-
-            pythonOutputThread.start();
+           Thread gazeProcessorThread = new Thread(() -> {
+               String message = null;
+                while (true) {
+                    message = gazeMessages.poll();
+                    if (message != null) {
+                        processRawData(message);
+                    }
+                }
+            });
+           gazeProcessorThread.start();
+           pythonOutputThread.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -519,16 +506,8 @@ public class EyeTracker implements Disposable {
                 def set_timer_resolution(ms=2):
                     winmm = ctypes.WinDLL('winmm')
                     result = winmm.timeBeginPeriod(ms)
-                
-                count = 0
-                thread_id = threading.get_ident()
-                callback_thread_id = threading.get_ident()              
+                    
                 def gaze_data_callback(gaze_data):
-                    if (callback_thread_id != threading.get_ident()):
-                        return
-                    if (threading.get_ident() != thread_id):
-                        return
-                    callback_thread_id = threading.get_ident()
                     message = '{}; {}, {}, {}, {}, {}; {}, {}, {}, {}, {}, {}, {}, {}'.format(
                         round(time.time() * 1000),
                         gaze_data['left_gaze_point_on_display_area'][0],
@@ -546,10 +525,7 @@ public class EyeTracker implements Disposable {
                         round(gaze_data['device_time_stamp'] / 1000)
                     )
                     print(message)
-                    count += 1
-                    if count == 10:
-                        sys.stdout.flush()
-                        count = 0
+                    sys.stdout.flush()
                             
                 found_eyetrackers = tr.find_all_eyetrackers()
                 my_eyetracker = found_eyetrackers[0]
