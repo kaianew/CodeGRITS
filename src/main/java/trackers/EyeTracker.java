@@ -1,17 +1,10 @@
 package trackers;
-import com.intellij.codeInsight.daemon.impl.EditorTracker;
-import com.intellij.codeInsight.daemon.impl.EditorTrackerListener;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.editor.EditorFactory;
-import com.intellij.openapi.editor.event.EditorFactoryEvent;
-import com.intellij.openapi.editor.event.EditorFactoryListener;
 import com.intellij.openapi.fileEditor.*;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.fileEditor.impl.EditorWithProviderComposite;
 import com.intellij.openapi.fileEditor.impl.EditorsSplitters;
 import com.intellij.openapi.fileEditor.impl.FileEditorManagerImpl;
-import com.intellij.util.ui.update.Activatable;
-import com.intellij.util.ui.update.UiNotifyConnector;
 import entity.AOIBounds;
 import entity.EyeEnum;
 
@@ -19,38 +12,26 @@ import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
-import com.intellij.openapi.editor.event.VisibleAreaListener;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import entity.XMLDocumentHandler;
-import kotlinx.coroutines.repackaged.net.bytebuddy.pool.TypePool;
-import org.jetbrains.annotations.NotNull;
-import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import trackers.TrackerInfo.IDETrackerInfo;
 import utils.RelativePathGetter;
 import utils.XMLWriter;
-
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 import java.awt.*;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.concurrent.*;
+import java.util.AbstractMap.SimpleEntry;
 
 /**
  * This class is the eye tracker.
@@ -65,7 +46,7 @@ public class EyeTracker implements Disposable {
     PsiDocumentManager psiDocumentManager;
 
     FileEditorManagerImpl source;
-    ConcurrentLinkedQueue<String> gazeMessages;
+    ConcurrentLinkedQueue<SimpleEntry<String, Long>> gazeMessages;
 
     /**
      * This variable is the XML document for storing the eye tracking data.
@@ -218,12 +199,16 @@ public class EyeTracker implements Disposable {
     /**
      * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
      *
-     * @param message The raw data.
+     * @param entry The raw data.
      */
-    public void processRawData(String message) {
+    public void processRawData(SimpleEntry<String, Long> entry) {
         if (!info.isTracking()) return;
+        String message = entry.getKey();
         Element gaze = getRawGazeElement(message);
+        long start_time = entry.getValue();
+        gaze.setAttribute("start_time", String.valueOf(start_time));
         EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
+
         if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
             // complain that gazePoint might be null after this point.
             gaze.setAttribute("remark", "Fail | Invalid Gaze Point");
@@ -299,6 +284,8 @@ public class EyeTracker implements Disposable {
                                         handleElement(gaze);
                                     }
                                 }));
+                                long end_time = System.nanoTime();
+                                gaze.setAttribute("end_time", String.valueOf(end_time));
                                 return;
                             }
                         }
@@ -346,14 +333,16 @@ public class EyeTracker implements Disposable {
                      BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
                     String line;
                     while ((line = bufferedReader.readLine()) != null) {
-                        gazeMessages.add(line);
+                        // Add time added to queue here as well
+                        SimpleEntry<String, Long> gazeEntry = new SimpleEntry<>(line, System.nanoTime());
+                        gazeMessages.add(gazeEntry);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             });
            Thread gazeProcessorThread = new Thread(() -> {
-               String message = null;
+               SimpleEntry<String, Long> message = null;
                 while (true) {
                     message = gazeMessages.poll();
                     if (message != null) {
