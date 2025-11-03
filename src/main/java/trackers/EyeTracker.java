@@ -31,7 +31,6 @@ import java.io.InputStreamReader;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.concurrent.*;
-import java.util.AbstractMap.SimpleEntry;
 
 /**
  * This class is the eye tracker.
@@ -46,7 +45,7 @@ public class EyeTracker implements Disposable {
     PsiDocumentManager psiDocumentManager;
 
     FileEditorManagerImpl source;
-    ConcurrentLinkedQueue<SimpleEntry<String, Long>> gazeMessages;
+    ConcurrentLinkedQueue<String> gazeMessages;
 
     /**
      * This variable is the XML document for storing the eye tracking data.
@@ -199,14 +198,11 @@ public class EyeTracker implements Disposable {
     /**
      * This method processes the raw data message from the eye tracker. It will filter the data, map the data to the specific source code element, and perform the upward traversal in the AST.
      *
-     * @param entry The raw data.
+     * @param message The raw data.
      */
-    public void processRawData(SimpleEntry<String, Long> entry) {
+    public void processRawData(String message) {
         if (!info.isTracking()) return;
-        String message = entry.getKey();
         Element gaze = getRawGazeElement(message);
-        long start_time = entry.getValue();
-        gaze.setAttribute("start_time", String.valueOf(start_time));
         EyeGazePoint gazePoint = createPointFromMessage(message, gaze);
 
         if(gazePoint == null) { // CLG note: Java is smart enough that this null check means it won't
@@ -284,8 +280,6 @@ public class EyeTracker implements Disposable {
                                         handleElement(gaze);
                                     }
                                 }));
-                                long end_time = System.nanoTime();
-                                gaze.setAttribute("end_time", String.valueOf(end_time));
                                 return;
                             }
                         }
@@ -334,15 +328,14 @@ public class EyeTracker implements Disposable {
                     String line;
                     while ((line = bufferedReader.readLine()) != null) {
                         // Add time added to queue here as well
-                        SimpleEntry<String, Long> gazeEntry = new SimpleEntry<>(line, System.nanoTime());
-                        gazeMessages.add(gazeEntry);
+                        gazeMessages.add(line);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             });
            Thread gazeProcessorThread = new Thread(() -> {
-               SimpleEntry<String, Long> message = null;
+               String message = null;
                 while (true) {
                     message = gazeMessages.poll();
                     if (message != null) {
