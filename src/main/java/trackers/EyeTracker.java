@@ -175,19 +175,7 @@ public class EyeTracker implements Disposable {
         if (leftGazePointX.equals("nan") || leftGazePointY.equals("nan") || rightGazePointX.equals("nan") || rightGazePointY.equals("nan")) {
             return null;
         }
-        int eyeX;
-        // TODO: you have to fix this to record the avg
-        switch(dominantEye) {
-            case LEFT:
-                eyeX = (int) (Double.parseDouble(leftGazePointX) * screenWidth);
-                break;
-            case RIGHT:
-                eyeX = (int) (Double.parseDouble(rightGazePointX) * screenWidth);
-                break;
-            default:
-                eyeX = 0;
-                return null;
-        }
+        int eyeX = (int) ((Double.parseDouble(leftGazePointX) + Double.parseDouble(rightGazePointX)) / 2 * screenWidth);
         int eyeY = (int) ((Double.parseDouble(leftGazePointY) + Double.parseDouble(rightGazePointY)) / 2 * screenHeight);
         return new EyeGazePoint(eyeX, eyeY);
     }
