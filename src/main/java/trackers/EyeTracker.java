@@ -373,9 +373,13 @@ public class EyeTracker implements Disposable {
         String rightGazeValidity = rightInfo.split(", ")[2];
         String rightPupilDiameter = rightInfo.split(", ")[3];
         String rightPupilValidity = rightInfo.split(", ")[4];
-        String leftTrackbox = rightInfo.split(", ")[5];
-        String rightTrackbox = rightInfo.split(", ")[6];
-        String device_timestamp = rightInfo.split(", ")[7];
+        String leftTrackboxX = rightInfo.split(", ")[5];
+        String rightTrackboxX = rightInfo.split(", ")[6];
+        String leftTrackboxY = rightInfo.split(", ")[7];
+        String rightTrackboxY = rightInfo.split(", ")[8];
+        String leftTrackboxZ = rightInfo.split(", ")[9];
+        String rightTrackboxZ = rightInfo.split(", ")[10];
+        String device_timestamp = rightInfo.split(", ")[11];
 
         Element rawGaze = xmldoc.createElementAtNamedParent("gaze", "gazes");
         Element leftEye = xmldoc.createElementAtRoot("left_eye");
@@ -392,14 +396,18 @@ public class EyeTracker implements Disposable {
         leftEye.setAttribute("gaze_validity", leftGazeValidity);
         leftEye.setAttribute("pupil_diameter", leftPupilDiameter);
         leftEye.setAttribute("pupil_validity", leftPupilValidity);
-        leftEye.setAttribute("gaze_point_z", leftTrackbox);
+        leftEye.setAttribute("left_trackbox_x", leftTrackboxX);
+        leftEye.setAttribute("left_trackbox_y", leftTrackboxY);
+        leftEye.setAttribute("left_trackbox_z", leftTrackboxZ);
 
         rightEye.setAttribute("gaze_point_x", rightGazePointX);
         rightEye.setAttribute("gaze_point_y", rightGazePointY);
         rightEye.setAttribute("gaze_validity", rightGazeValidity);
         rightEye.setAttribute("pupil_diameter", rightPupilDiameter);
         rightEye.setAttribute("pupil_validity", rightPupilValidity);
-        rightEye.setAttribute("gaze_point_z", rightTrackbox);
+        rightEye.setAttribute("right_trackbox_x", rightTrackboxX);
+        rightEye.setAttribute("right_trackbox_y", rightTrackboxY);
+        rightEye.setAttribute("right_trackbox_z", rightTrackboxZ);
 
         return rawGaze;
     }
@@ -486,7 +494,7 @@ public class EyeTracker implements Disposable {
                     result = winmm.timeBeginPeriod(ms)
                     
                 def gaze_data_callback(gaze_data):
-                    message = '{}; {}, {}, {}, {}, {}; {}, {}, {}, {}, {}, {}, {}, {}'.format(
+                    message = '{}; {}, {}, {}, {}, {}; {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}'.format(
                         round(time.time() * 1000),
                         gaze_data['left_gaze_point_on_display_area'][0],
                         gaze_data['left_gaze_point_on_display_area'][1],
@@ -498,6 +506,10 @@ public class EyeTracker implements Disposable {
                         gaze_data['right_gaze_point_validity'],
                         gaze_data['right_pupil_diameter'],
                         gaze_data['right_pupil_validity'],
+                        gaze_data['left_gaze_origin_in_trackbox_coordinate_system'][0],
+                        gaze_data['right_gaze_origin_in_trackbox_coordinate_system'][0],
+                        gaze_data['left_gaze_origin_in_trackbox_coordinate_system'][1],
+                        gaze_data['right_gaze_origin_in_trackbox_coordinate_system'][1],
                         gaze_data['left_gaze_origin_in_trackbox_coordinate_system'][2],
                         gaze_data['right_gaze_origin_in_trackbox_coordinate_system'][2],
                         round(gaze_data['device_time_stamp'] / 1000)
