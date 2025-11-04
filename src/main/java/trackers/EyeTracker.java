@@ -6,7 +6,6 @@ import com.intellij.openapi.fileEditor.impl.EditorWithProviderComposite;
 import com.intellij.openapi.fileEditor.impl.EditorsSplitters;
 import com.intellij.openapi.fileEditor.impl.FileEditorManagerImpl;
 import entity.AOIBounds;
-import entity.EyeEnum;
 
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
@@ -65,8 +64,6 @@ public class EyeTracker implements Disposable {
     String pythonScriptTobii;
     String pythonScriptMouse;
     int deviceIndex = 0;
-    // This enum determines which eye is dominant, which affects the x,y calculation
-    EyeEnum dominantEye;
 
     private static final Logger LOG = Logger.getInstance(EyeTracker.class);
 
@@ -129,8 +126,6 @@ public class EyeTracker implements Disposable {
             setting.setAttribute("eye_tracker", "Tobii Pro Fusion");
         }
         setting.setAttribute("sample_frequency", String.valueOf(sampleFrequency));
-        // Records the dominant eye in the eye_tracking.xml file.
-        setting.setAttribute("dominant_eye", dominantEye.toString());
         track();
     }
 
@@ -389,7 +384,7 @@ public class EyeTracker implements Disposable {
         rawGaze.appendChild(leftEye);
         rawGaze.appendChild(rightEye);
 
-        rawGaze.setAttribute("timestamp", timestamp);
+        rawGaze.setAttribute("system_timestamp", timestamp);
         rawGaze.setAttribute("device_timestamp", device_timestamp);
 
         leftEye.setAttribute("gaze_point_x", leftGazePointX);
@@ -473,7 +468,6 @@ public class EyeTracker implements Disposable {
     public void setSampleFrequency(double sampleFrequency) {
         this.sampleFrequency = sampleFrequency;
     }
-    public void setDominantEye(EyeEnum dominantEye) {this.dominantEye = dominantEye;}
 
     /**
      * This method sets the Python script for the Tobii eye tracker.
