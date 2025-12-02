@@ -1,7 +1,6 @@
 package components;
 
 import actions.AddLabelAction;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.ui.*;
 import com.intellij.ui.DocumentAdapter;
@@ -15,6 +14,7 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.ui.JBUI;
 import entity.Config;
+import utils.OSDetector;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -32,11 +32,12 @@ import java.util.regex.Pattern;
 public class ConfigDialog extends DialogWrapper {
 
     private List<JCheckBox> checkBoxes;
+
     private final JPanel panel = new JPanel();
     private static List<JTextField> labelAreas = new ArrayList<>();
 
-    private static final TextFieldWithBrowseButton pythonInterpreterTextField = new TextFieldWithBrowseButton();
-    private static final TextFieldWithBrowseButton dataOutputTextField = new TextFieldWithBrowseButton();
+    private static TextFieldWithBrowseButton pythonInterpreterTextField;
+    private static TextFieldWithBrowseButton dataOutputTextField;
 
     private final JComboBox<Double> freqCombo = new ComboBox<>();
     private final JComboBox<String> deviceCombo = new ComboBox<>(new String[]{"Mouse"});
@@ -46,7 +47,6 @@ public class ConfigDialog extends DialogWrapper {
 
     public static String selectDataOutputPlaceHolder = "Select Data Output Folder (Default: Project Root)";
     public static String selectPythonInterpreterPlaceHolder = "Select Python Interpreter (Default: \"python\")";
-    private static final Logger LOG = Logger.getInstance(ConfigDialog.class);
 
     /**
      * The constructor of the configuration dialog.
@@ -55,21 +55,15 @@ public class ConfigDialog extends DialogWrapper {
      */
     public ConfigDialog(Project project) throws IOException, InterruptedException {
         super(true);
+        pythonInterpreterTextField = new TextFieldWithBrowseButton();
+        dataOutputTextField = new TextFieldWithBrowseButton();
+
         init();
         setTitle("CodeGRITS Configuration");
         setSize(500, 500);
         setAutoAdjustable(true);
         setResizable(false);
         Config config = new Config();
-        // For now, delete config json when the config dialog is opened and start from scratch
-//        Path earlierConfig = Paths.get(PathManager.getPluginsPath() + "/config.json");
-//        try {
-//            Files.delete(earlierConfig);
-//            LOG.info("deleted the earlier config");
-//        }
-//        catch (Exception e) {
-//            LOG.info("Failed to delete the earlier config");
-//        }
         if (config.configExists()) {
             config.loadFromJson();
             List<Boolean> selected = config.getCheckBoxes();
@@ -78,11 +72,10 @@ public class ConfigDialog extends DialogWrapper {
             }
             pythonInterpreterTextField.setText(config.getPythonInterpreter());
         }
-        if (getPythonInterpreter().equals(selectPythonInterpreterPlaceHolder) || getPythonInterpreter().equals("python") || getPythonInterpreter().equals("python3") || getPythonInterpreter().equals("") || getPythonInterpreter().endsWith("python") || getPythonInterpreter().endsWith("python3") || getPythonInterpreter().endsWith("python.exe") || getPythonInterpreter().endsWith("python3.exe")) {
-
-            pythonEnvironment = true; //AvailabilityChecker.checkPythonEnvironment(getPythonInterpreter());
+        if (getPythonInterpreter().equals(selectPythonInterpreterPlaceHolder) || getPythonInterpreter().equals("python") || getPythonInterpreter().equals("python3") || getPythonInterpreter().isEmpty() || getPythonInterpreter().endsWith("python") || getPythonInterpreter().endsWith("python3") || getPythonInterpreter().endsWith("python.exe") || getPythonInterpreter().endsWith("python3.exe")) {
+            pythonEnvironment = AvailabilityChecker.checkPythonEnvironment(getPythonInterpreter());
             if (pythonEnvironment && checkBoxes.get(1).isSelected()) {
-                eyeTracker = false; ///AvailabilityChecker.checkEyeTracker(getPythonInterpreter());
+                eyeTracker = AvailabilityChecker.checkEyeTracker(getPythonInterpreter());
                 if (eyeTracker) { //eye tracker found, add mouse and eye tracker name, add eye tracker freq
                     String trackerName = AvailabilityChecker.getEyeTrackerName(getPythonInterpreter());
                     if (trackerName != null && !trackerName.equals("Not Found")) {
@@ -267,13 +260,17 @@ public class ConfigDialog extends DialogWrapper {
                 new DocumentAdapter() {
                     @Override
                     protected void textChanged(@NotNull DocumentEvent e) {
-                        //TODO: what if using mac/unix/anaconda
-                        if (getPythonInterpreter().equals("python") || getPythonInterpreter().equals("python3") || getPythonInterpreter().equals("") || getPythonInterpreter().endsWith("python") || getPythonInterpreter().endsWith("python3") || getPythonInterpreter().endsWith("python.exe") || getPythonInterpreter().endsWith("python3.exe")) {
-                            pythonEnvironment = false; //AvailabilityChecker.checkPythonEnvironment(getPythonInterpreter());
-                        } else {
-                            pythonEnvironment = false;
+                        try {
+                            //TODO: what if using mac/unix/anaconda
+                            if (getPythonInterpreter().equals("python") || getPythonInterpreter().equals("python3") || getPythonInterpreter().isEmpty() || getPythonInterpreter().endsWith("python") || getPythonInterpreter().endsWith("python3") || getPythonInterpreter().endsWith("python.exe") || getPythonInterpreter().endsWith("python3.exe")) {
+                                pythonEnvironment = AvailabilityChecker.checkPythonEnvironment(getPythonInterpreter());
+                            } else {
+                                pythonEnvironment = false;
+                            }
+                            ComponentValidator.getInstance(pythonInterpreterTextField.getTextField()).ifPresent(ComponentValidator::revalidate);
+                        } catch (IOException | InterruptedException ex) {
+                            throw new RuntimeException(ex);
                         }
-                        ComponentValidator.getInstance(pythonInterpreterTextField.getTextField()).ifPresent(ComponentValidator::revalidate);
                     }
                 }
         );
@@ -418,7 +415,7 @@ public class ConfigDialog extends DialogWrapper {
             Matcher lettersMatcher = lettersPattern.matcher(textField.getText());
             Matcher punctuationMatcher = punctuationPattern.matcher(textField.getText());
             Set<String> invalidChars = new HashSet<>();
-            if (spaceMatcher.matches() || text.equals("")) {
+            if (spaceMatcher.matches() || text.isEmpty()) {
                 button.setEnabled(false);
                 return new ValidationInfo("Label cannot be empty", textField);
             } else {
@@ -429,8 +426,8 @@ public class ConfigDialog extends DialogWrapper {
                         button.setEnabled(false);
                     }
                 }
-                if (invalidChars.size() > 0) {
-                    return new ValidationInfo("Label cannot contain " + invalidChars.toString(), textField);
+                if (!invalidChars.isEmpty()) {
+                    return new ValidationInfo("Label cannot contain " + invalidChars, textField);
                 } else {
                     button.setEnabled(true);
                     return null;
@@ -525,11 +522,11 @@ public class ConfigDialog extends DialogWrapper {
      */
     public static String getPythonInterpreter() {
         if (ProjectManager.getInstance().getOpenProjects().length == 0) {
-            return "python";
+            return OSDetector.isWindows() ? "python" : "python3";
         }
-        if (pythonInterpreterTextField.getText().equals("")
+        if (pythonInterpreterTextField.getText().isEmpty()
                 || pythonInterpreterTextField.getText().equals(selectPythonInterpreterPlaceHolder)) {
-            return "python";
+            return OSDetector.isWindows() ? "python" : "python3";
         }
         return pythonInterpreterTextField.getText().equals(selectPythonInterpreterPlaceHolder)
                 ? selectPythonInterpreterPlaceHolder : pythonInterpreterTextField.getText();

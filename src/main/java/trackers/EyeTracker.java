@@ -340,6 +340,9 @@ public class EyeTracker implements Disposable {
                     }
                 }
             });
+           // set priority here before I start these threads. want python thread to have higher priority than gaze processor thread
+            // because gazes are not coming in fast enough
+//            pythonOutputThread.setPriority(gazeProcessorThread.getPriority() + 1);
            gazeProcessorThread.start();
            pythonOutputThread.start();
         } catch (Exception e) {
